@@ -72,4 +72,5 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource) {
     //close dir
 
     //return to main
+    //finish
 }
