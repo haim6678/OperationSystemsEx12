@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <memory.h>
 
-#define SIZE 2048
+#define SIZE 512
 
 int main(int argc, char *argv[]) {
 
@@ -48,25 +48,60 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void startChecking(char *usersDirPath, char *inputSource, char *outputSource) {
+void startChecking(char *usersDirPath, char *inputSource, char *outputSource, int resultDescriptor) {
 
+    //open users directory
     DIR *users = opendir(usersDirPath);
+    struct dirent *pDirent;
     if (users == NULL) {
         perror("failed open users directory");
         exit(-1);
     }
 
-    //open input
-    //open output
-    //iterate over users
+    //open input source
+    int inputDescriptor = open(inputSource, O_RDONLY);
+    if (inputDescriptor < 0) {
+        perror("failed open input source");
+        exit(-1);
+    }
 
-    //for every user:
-    // find is exe
-    //count the depth of is exe
-    //compile an run it
-    //check for timeout etc
-    //compare output files with ex11
-    //set is grade
+    //open output source
+    int outputDescriptor = open(outputSource, O_RDONLY);
+    if (inputDescriptor < 0) {
+        perror("failed open output source");
+        exit(-1);
+    }
+
+    //iterate over users
+    char *studentName;
+    int depth;
+    int grade;
+    //for every user run test
+    while ((pDirent = readdir(users)) != NULL) {
+        studentName = pDirent->d_name;
+
+        if (pDirent->d_type == DT_DIR) { //TODO will worl or need lstat?
+
+            // find is exe
+            //count the depth of is exe
+            depth = hasExecutable();
+            //has an executable
+            if (depth != -1) {
+                //compile an run it
+                //check for timeout etc
+                //compare output files with ex11
+                grade = runCheck();
+                //set is grade
+                setGrade(depth, grade, resultDescriptor);
+            } else {
+                //didn't fount exe
+                //todo what to do?
+            }
+
+        }
+
+    }
+
 
     //close files
     //close dir
