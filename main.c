@@ -7,6 +7,14 @@
 #include <sys/stat.h>
 #include <wait.h>
 
+#define COMPILE_ERROR -2
+#define TIMEOUT_EXEPTION -3
+#define NOT_ACCURATE_OUTPUT -4
+#define WRONG_OUTPUT -5
+#define NO_C_FILE -6
+#define FORK_FAILED -7
+#define CORE_DUMPED_EXEPTION -8
+#define WAIT_ERROR
 #define SIZE 512
 
 void startChecking(char *usersDirPath, char *inputSource, char *outputSource, int resultDescriptor);
@@ -160,7 +168,7 @@ int runFile(char *dir, char *fileName, int inputFile, int outputFile, int depth)
     int status;
     strcat(dir, "/");
     strcat(dir, fileName);
-
+    char *outName;
     int pid = fork();
     //son process
     if (pid == 0) {
@@ -177,41 +185,120 @@ int runFile(char *dir, char *fileName, int inputFile, int outputFile, int depth)
             //todo handle wait failed
         };
 
-
+        //check compile errors
         if (WIFEXITED (status)) {
-
-        } else {
-            //todo handle error compiling
+            if (WEXITSTATUS(status) == 1) {
+                //todo handle error compiling
+            }
+        } else if (WEXITSTATUS(status) == 0) {
+            x
+            return executeUserProg(outName, inputFile, outputFile);
         }
 
 
-        //check compile error
-
-        //run the exe file
-        return executeUserProg();
     }
 }
 
-int executeUserProg(char *name, int resultFile, int inputFile, int outputFile) {
+int executeUserProg(char *name, int inputFile, char *outputFile, int outputFileDescriptor, char *compareProgPath) {
 
-    //use dup for input and output
+    //declare variables
+    __pid_t pid;
+    int status;
+    int result;
+    int success;
+    char userProgName[SIZE];
+    char userOutputName[SIZE];
+
+    //create outpu file
+    int userOutput = open("studetOutput", O_RDWR | O_APPEND | O_EXCL, 0666);
+
+    //create program out path
+    strtok(userProgName, name);
+    strtok(name, "/");
+    strtok(name, "student.out");
+
+    //create user output path
+    strtok(userOutputName, name);
+    strtok(name, "/");
+    strtok(name, "studetOutput");
+
+    //use dup for input
+    success = dup2(inputFile, 0);
+    if (success == -1) {
+        //todo handle dup fail
+    }
+
+    //ude dup for output
+    success = dup2(outputFileDescriptor, 1);
+    if (success == -1) {
+        //todo handle dup fail
+    }
 
     //create sun
+    pid = fork();
+    if (pid < 0) {
+        //todo handle error
+    }
 
-    //run prog into a file withe the input
+    //we are son process
+    if (pid == 0) {
+        //run program
+        execlp(userProgName, userOutputName, NULL);
 
-    //wait for sun
 
-    runCompare(userOutput, outputFile);
+        //check for timeout
+
+        //we are father process
+    } else {
+
+        //wait for son
+        if (waitpid(pid, &status, 0) == -1) {
+            //todo handle wait error
+        }
+        //run my compare prog
+        result = runCompare(userOutputName, outputFile, compareProgPath);
+        //chdir(getenv("HOME"));
+        chdir(name);
+        unlink(userProgName);
+        unlink(userOutputName);
+        return result;
+        //return result
+    }
+
+    //todo delete a.out file
+
 }
 
-int runCompare(int userOutput, int outputFile) {
+int runCompare(char *userOutput, char *outputFile, char *progDirPath) {
+    int status;
+    __pid_t pid;
 
+    chdir(getenv("HOME"));
+
+    DIR *progDir = opendir(progDirPath);
+    chdir(progDir);
     //fork a son
 
-    //run my ex11 on it
+    if ((pid = fork()) < 0) {
+        //todo handle error
+    }
 
-    //check if fail
+    if (pid == 0) {
+        //run my ex11 on it
+        execlp("ex11", "ex11", userOutput, outputFile, NULL);
+        //check if fail
+    } else {
+
+        if (waitpid(pid, &status, 0) == -1) {
+            // todo handle wait error
+        }
+
+
+        lseek(outputFile, 0, SEEK_SET);
+    }
+
+
+    //delete user output
 
     //return grade
 }
