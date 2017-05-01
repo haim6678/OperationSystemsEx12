@@ -135,7 +135,7 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
         strtok(tempPath, pDirent->d_name);
         temp = checkForManyFOlders(tempPath);
         //if there is more then one
-        if(temp>1) {
+        if (temp > 1) {
 
             //todo handle
         }
@@ -145,7 +145,7 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
             depth = 0;
             // find the exe compile an run is
             //then compare to the expected files
-            depth = checkExecutableAndRun(usersDirPath, pDirent->d_name, &depth, inputDescriptor, outputDescriptor);
+            checkExecutableAndRun(usersDirPath, pDirent->d_name, depth, inputDescriptor, outputDescriptor);
             //has an executable
             setGrade()
             //todo what to do?
@@ -158,16 +158,13 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
 
 //close dir
 
-//return to main
-//finish
 
-
-int checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, int outputFile,) {
+void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, int outputFile,char*  compareProgPath) {
 
     //declare vars
     char *temp = dir;
     struct dirent *pDirent;
-    ++(depth);
+    ++depth;
     DIR *studentDir;
 
 
@@ -182,25 +179,33 @@ int checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputF
     chdir(dir);
     //search for c file
     if (((pDirent = readdir(studentDir)) == NULL)) {
-        return -1;
+        depth = -1;
+        setgrade()
+        return;
     } else if (is_C_file(pDirent->d_name) == 1) {
         //compile and run
 
-        return runFile(dir, pDirent->d_name, inputFile, outputFile, depth);
+        compileFile(dir, pDirent->d_name, inputFile, outputFile, depth);
+        return;
     }
-
-    return checkExecutableAndRun(dir, pDirent->d_name, depth, inputFile, outputFile);
+    checkExecutableAndRun(dir, pDirent->d_name, depth, inputFile, outputFile);
 }
 
 
-int runFile(char *dir, char *fileName, int inputFile, int outputFile, int depth) {
+void compileFile(char *dir, char *fileName, int inputFile, int outputFile, int depth,char*  compareProgPath) {
 
-    chdir(dir);
+    char exeFilePath[SIZE];
     int status;
-    strcat(dir, "/");
-    strcat(dir, fileName);
-    char *outName;
-    int pid = fork();
+    int pid;
+    char exeOutName[SIZE];
+
+    //create exe path
+    strtok(exeFilePath, dir);
+    strtok(exeFilePath, "/");
+    strtok(exeFilePath, fileName);
+
+
+    pid = fork();
     //son process
     if (pid == 0) {
 
@@ -210,8 +215,8 @@ int runFile(char *dir, char *fileName, int inputFile, int outputFile, int depth)
     } else {
 
         //wait for sun
-        //check wait
         pid = waitpid(pid, &status, 0);
+        //check wait succeed
         if (pid == -1) {
             //todo handle wait failed
         };
@@ -222,50 +227,50 @@ int runFile(char *dir, char *fileName, int inputFile, int outputFile, int depth)
                 //todo handle error compiling
             }
         } else if (WEXITSTATUS(status) == 0) {
-            x
-            return executeUserProg(outName, inputFile, outputFile);
+
+            executeUserProg(dir, inputFile, outputFile, ,);
         }
-
-
     }
 }
 
-int executeUserProg(char *name, int inputFile, char *outputFile, int outputFileDescriptor, char *compareProgPath) {
+int executeUserProg(char *dirName, int inputFileDescriptor,
+                    char *compareProgPath) {
 
     //declare variables
     __pid_t pid;
     int status;
     int result;
     int success;
+    int userOutputDescriptor;
     char userProgName[SIZE];
     char userOutputName[SIZE];
 
-    //create outpu file
-    int userOutput = open("studetOutput", O_RDWR | O_APPEND | O_EXCL, 0666);
+    //create output file
+    userOutputDescriptor = open("studentOutput", O_RDWR | O_APPEND | O_EXCL, 0666);
 
     //create program out path
-    strtok(userProgName, name);
-    strtok(name, "/");
-    strtok(name, "student.out");
+    strtok(userProgName, dirName);
+    strtok(userProgName, "/");
+    strtok(userProgName, "student.out");
 
     //create user output path
-    strtok(userOutputName, name);
-    strtok(name, "/");
-    strtok(name, "studetOutput");
+    strtok(userOutputName, dirName);
+    strtok(userOutputName, "/");
+    strtok(userOutputName, "studentOutput");
 
     //use dup for input
-    success = dup2(inputFile, 0);
+    success = dup2(inputFileDescriptor, 0);
     if (success == -1) {
         //todo handle dup fail
     }
 
     //ude dup for output
-    success = dup2(outputFileDescriptor, 1);
+    success = dup2(userOutputDescriptor, 1);
     if (success == -1) {
         //todo handle dup fail
     }
 
-    //create sun
+    //create sun to run user program
     pid = fork();
     if (pid < 0) {
         //todo handle error
@@ -274,10 +279,9 @@ int executeUserProg(char *name, int inputFile, char *outputFile, int outputFileD
     //we are son process
     if (pid == 0) {
         //run program
-        execlp(userProgName, userOutputName, NULL);
+        execlp(dirName, userProgName, NULL);
 
-
-        //check for timeout
+        //todo check for timeout
 
         //we are father process
     } else {
@@ -287,9 +291,9 @@ int executeUserProg(char *name, int inputFile, char *outputFile, int outputFileD
             //todo handle wait error
         }
         //run my compare prog
-        result = runCompare(userOutputName, outputFile, compareProgPath);
+        result = runCompare(userOutputName, givenOutputFile, compareProgPath);
         //chdir(getenv("HOME"));
-        chdir(name);
+        chdir(dirName);
         unlink(userProgName);
         unlink(userOutputName);
         return result;
