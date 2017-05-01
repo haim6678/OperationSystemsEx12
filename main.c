@@ -97,6 +97,8 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
     char *studentName;
     int depth;
     int grade;
+    int temp;
+    char tempPath[SIZE];
     //open users directory
     users = opendir(usersDirPath);
     if (users == NULL) {
@@ -121,16 +123,28 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
         exit(-1);
     }
 
+
     //iterate over users
     //for every user run test
     while ((pDirent = readdir(users)) != NULL) {
         studentName = pDirent->d_name;
 
+        //check for more then one directory
+        strtok(tempPath, usersDirPath);
+        strtok(tempPath, "/");
+        strtok(tempPath, pDirent->d_name);
+        temp = checkForManyFOlders(tempPath);
+        //if there is more then one
+        if(temp>1) {
+
+            //todo handle
+        }
+
+        //iterate and find file
         if (pDirent->d_type == DT_DIR) { //TODO will work or need stat?
             depth = 0;
-            // find is exe
-            //count the depth of is exe
-
+            // find the exe compile an run is
+            //then compare to the expected files
             depth = checkExecutableAndRun(usersDirPath, pDirent->d_name, &depth, inputDescriptor, outputDescriptor);
             //has an executable
             setGrade()
@@ -142,12 +156,11 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
 }
 
 
-//close files
 //close dir
 
 //return to main
 //finish
-}
+
 
 int checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, int outputFile,) {
 
@@ -327,4 +340,21 @@ int is_C_file(char *pDirent) {
         return 1;
     }
     return 0;
+}
+
+int checkForManyFOlders(char *temp) {
+
+    struct dirent *pDirnet;
+    DIR *dir;
+    int num = 0;
+    dir = opendir(temp);
+    if (dir == NULL) {
+
+        //TODO HANDLE!
+    }
+
+    while ((pDirnet = readdir(dir)) != NULL) {
+        num++;
+    }
+    return num;
 }
