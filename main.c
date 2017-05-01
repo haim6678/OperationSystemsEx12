@@ -146,6 +146,8 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
             // find the exe compile an run is
             //then compare to the expected files
             checkExecutableAndRun(usersDirPath, pDirent->d_name, depth, inputDescriptor, outputDescriptor);
+            lseek(inputDescriptor, 0, SEEK_SET);
+            lseek(outputDescriptor, 0, SEEK_SET);
             //has an executable
             setGrade()
             //todo what to do?
@@ -159,7 +161,8 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
 //close dir
 
 
-void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, int outputFile,char*  compareProgPath) {
+void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, int outputFile,
+                           char *compareProgPath) {
 
     //declare vars
     char *temp = dir;
@@ -185,14 +188,15 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int input
     } else if (is_C_file(pDirent->d_name) == 1) {
         //compile and run
 
-        compileFile(dir, pDirent->d_name, inputFile, outputFile, depth);
+        compileFile(dir, pDirent->d_name, inputFile, outputFile, depth, , , studentDirName);
         return;
     }
-    checkExecutableAndRun(dir, pDirent->d_name, depth, inputFile, outputFile);
+    checkExecutableAndRun(dir, pDirent->d_name, depth, inputFile, outputFile, studentDirName);
 }
 
 
-void compileFile(char *dir, char *fileName, int inputFile, int outputFile, int depth,char*  compareProgPath) {
+void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth, char *compareProgPath,
+                 char *initialPath, char *studentName) {
 
     char exeFilePath[SIZE];
     int status;
@@ -228,13 +232,13 @@ void compileFile(char *dir, char *fileName, int inputFile, int outputFile, int d
             }
         } else if (WEXITSTATUS(status) == 0) {
 
-            executeUserProg(dir, inputFile, outputFile, ,);
+            executeUserProg(dir, inputFile, initialPath, outputFile, depth);
         }
     }
 }
 
 int executeUserProg(char *dirName, int inputFileDescriptor,
-                    char *compareProgPath) {
+                    char *compareProgPath, char *givenOutputFile, int depth) {
 
     //declare variables
     __pid_t pid;
@@ -281,46 +285,56 @@ int executeUserProg(char *dirName, int inputFileDescriptor,
         //run program
         execlp(dirName, userProgName, NULL);
 
-        //todo check for timeout
+        //todo check for timeout or exeptiom and set grade
 
         //we are father process
     } else {
-
+        sleep(5);
         //wait for son
-        if (waitpid(pid, &status, 0) == -1) {
+        if ((success = waitpid(pid, &status, WNOHANG)) == 0) {
             //todo handle wait error
+            setgrade
+        } else if (success == -1) {
+            //todo handle error waiting
+            setgrade
         }
-        //run my compare prog
-        result = runCompare(userOutputName, givenOutputFile, compareProgPath);
-        //chdir(getenv("HOME"));
+        //run my compare program
+        result = runCompare(userOutputName, givenOutputFile, compareProgPath, depth, studentName, resultFile);
+
+        chdir(getenv("HOME"));
         chdir(dirName);
         unlink(userProgName);
         unlink(userOutputName);
         return result;
-        //return result
+
     }
 
-    //todo delete a.out file
+    //todo delete a.out file and output
 
 }
 
-int runCompare(char *userOutput, char *outputFile, char *progDirPath) {
+int runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth, char *studentName, int resultFile) {
     int status;
     __pid_t pid;
-
+    DIR *progDir;
+    int compareResult;
     chdir(getenv("HOME"));
 
-    DIR *progDir = opendir(progDirPath);
+    progDir = opendir(progDirPath);
+    if (progDir == NULL) {
+
+        //todo handle
+    }
+
     chdir(progDir);
     //fork a son
-
     if ((pid = fork()) < 0) {
         //todo handle error
     }
 
     if (pid == 0) {
         //run my ex11 on it
-        execlp("ex11", "ex11", userOutput, outputFile, NULL);
+        execlp(progDirPath, "ex11", userOutput, outputFile, NULL);
         //check if fail
     } else {
 
@@ -328,14 +342,68 @@ int runCompare(char *userOutput, char *outputFile, char *progDirPath) {
             // todo handle wait error
         }
 
+        if (WIFEXITED(status)) {
+            compareResult = WEXITSTATUS(status);
+            setGrade(compareResult, depth, resultFile, studentName);
+        } else {
 
-        lseek(outputFile, 0, SEEK_SET);
+        }
+
+
     }
 
 
-    //delete user output
+}
 
-    //return grade
+int calcGrade(int grade, int depth) {
+
+    int temp;
+    switch (grade) {
+        case 1:
+
+            temp = (100) - (10 * depth);
+            if (temp > 0) {
+                return temp;
+            }
+            return 0;
+        case 2:
+            temp = (70) - (10 * depth);
+            if (temp > 0) {
+                return temp;
+            }
+            return 0;
+        case 3:
+            return 0;
+        default:
+            return 0;
+    }
+}
+
+void setGrade(int grade, int depth, int resultFile, char *studentName) {
+    char finalDetails[512];
+    char gradeDescription[128];
+    char gradeString[128];
+    strtok(studentName, ",");
+    //convert grade to string
+    int temp;
+    int writen;
+    temp = calcGrade(grade, depth);
+
+    writen = snprintf(gradeString, 128, "%d", temp);
+    if (writen < 0) {
+        //todo handle this
+    }
+
+
+    strtok(finalDetails, studentName);
+    strtok(finalDetails, ",");
+    strtok(finalDetails, gradeString);
+    strtok(finalDetails, ",")
+    strtok(finalDetails, gradeDescription);
+    write(resultFile, studentName, strlen(finalDetails));
+    check
+    write fail
+
 }
 
 int is_C_file(char *pDirent) {
