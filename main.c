@@ -26,13 +26,16 @@ int main(int argc, char *argv[]) {
     char outputSource[SIZE];
     char inputSource[SIZE];
     char usersDirPath[SIZE];
-
+    char initialProgPath[SIZE];
     //check if we got the args
     if (argc < 2) {
         perror("wrong arguments");
         exit(-1);
     }
 
+    if ((getcwd(initialProgPath, SIZE) == NULL)) {
+        //todo handle error
+    }
     //open the config file to read
     int config = open(argv[1], O_RDONLY);
     if (config == NULL) {
@@ -42,7 +45,10 @@ int main(int argc, char *argv[]) {
 
     //set the reading to br from start
     off_t seek = lseek(config, 0, SEEK_SET);
-    //todo check succeed
+    if(seek ==-2) {
+        //todo handle error
+    }
+
 
 
     //create result file
