@@ -7,18 +7,53 @@
 #include <sys/stat.h>
 #include <wait.h>
 
-#define COMPILE_ERROR -2
-#define TIMEOUT_EXEPTION -3
+
+#define ‫‪BAD_OUTPUT‬‬ 3
+#define ‫‪SIMILLAR_OUTPUT‬‬ 2
+#define CORRECT_OUTPUT 1
+#define ‫‪COMPILATION_ERROR‬‬ -2
+#define ‫‪TIMEOUT‬‬ -3
 #define NOT_ACCURATE_OUTPUT -4
 #define WRONG_OUTPUT -5
 #define NO_C_FILE -6
 #define FORK_FAILED -7
 #define CORE_DUMPED_EXEPTION -8
-#define WAIT_ERROR
+#define WAIT_ERROR -9
 #define SIZE 512
 
+//the function deceleration
 void startChecking(char *usersDirPath, char *inputSource, char *outputSource, int resultDescriptor);
 
+void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, int outputFile,
+                           char *compareProgPath);
+
+void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth,
+                 char *compareProgPath, char *initialPath, char *studentName);
+
+void executeUserProg(char *dirName, int inputFileDescriptor,
+                     char *compareProgPath, char *givenOutputFile, int depth);
+
+int runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth,
+               char *studentName, int resultFile);
+
+int calcGrade(int grade, int depth);
+
+void getStringGrade(char *buff, int grade, int depth);
+
+void setGrade(int grade, int depth, int resultFile, char *studentName);
+
+int is_C_file(char *pDirent);
+
+int checkForManyFOlders(char *temp);
+
+/**
+ * the main function.
+ * opens the config file,then opens the users directory
+ * runs every user program and grade him.
+ * @param argc
+ * @param argv
+ * @return
+ */
 int main(int argc, char *argv[]) {
 
     //declare variables
@@ -29,17 +64,19 @@ int main(int argc, char *argv[]) {
     char initialProgPath[SIZE];
     int resultFile;
     char *paths;
-    DIR *users;
     ssize_t readNum;
+
     //check if we got the args
     if (argc < 2) {
         perror("wrong arguments");
         exit(-1);
     }
 
+    //get the current working directory
     if ((getcwd(initialProgPath, SIZE) == NULL)) {
         //todo handle error
     }
+
     //open the config file to read
     int config = open(argv[1], O_RDONLY);
     if (config == NULL) {
@@ -52,7 +89,6 @@ int main(int argc, char *argv[]) {
     if (seek == -2) {
         //todo handle error
     }
-
 
     //create result file
     resultFile = open("result.csv", O_CREAT || O_APPEND || O_RDWR);
@@ -88,6 +124,15 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+/**
+ * get the users directory path and
+ * start running on each student
+ * fins is c file and grade him
+ * @param usersDirPath
+ * @param inputSource
+ * @param outputSource
+ * @param resultDescriptor
+ */
 void startChecking(char *usersDirPath, char *inputSource, char *outputSource, int resultDescriptor) {
 
     struct dirent *pDirent;
@@ -237,8 +282,8 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
     }
 }
 
-int executeUserProg(char *dirName, int inputFileDescriptor,
-                    char *compareProgPath, char *givenOutputFile, int depth) {
+void executeUserProg(char *dirName, int inputFileDescriptor,
+                     char *compareProgPath, char *givenOutputFile, int depth) {
 
     //declare variables
     __pid_t pid;
@@ -360,7 +405,6 @@ int calcGrade(int grade, int depth) {
     int temp;
     switch (grade) {
         case 1:
-
             temp = (100) - (10 * depth);
             if (temp > 0) {
                 return temp;
@@ -379,31 +423,42 @@ int calcGrade(int grade, int depth) {
     }
 }
 
+void getStringGrade(char *buff, int grade, int depth) {
+
+}
+
 void setGrade(int grade, int depth, int resultFile, char *studentName) {
     char finalDetails[512];
     char gradeDescription[128];
     char gradeString[128];
+    int temp;
+    ssize_t writen;
+
     strtok(studentName, ",");
     //convert grade to string
-    int temp;
-    int writen;
-    temp = calcGrade(grade, depth);
 
+    temp = calcGrade(grade, depth);
     writen = snprintf(gradeString, 128, "%d", temp);
     if (writen < 0) {
         //todo handle this
     }
 
+    getStringGrade(gradeDescription, grade, depth);
 
+    //create one long string
     strtok(finalDetails, studentName);
     strtok(finalDetails, ",");
     strtok(finalDetails, gradeString);
-    strtok(finalDetails, ",")
+    strtok(finalDetails, ",");
     strtok(finalDetails, gradeDescription);
-    write(resultFile, studentName, strlen(finalDetails));
-    check
-    write fail
 
+    //write this string
+    writen = write(resultFile, studentName, strlen(finalDetails));
+    if (writen < 0) {
+        //todo handle error
+    }
+
+    return;
 }
 
 int is_C_file(char *pDirent) {
