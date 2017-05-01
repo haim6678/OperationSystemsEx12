@@ -22,16 +22,19 @@
 #define SIZE 512
 
 //the function deceleration
-void startChecking(char *usersDirPath, char *inputSource, char *outputSource, int resultDescriptor);
+void startChecking(char *usersDirPath, char *inputSource,
+                   char *outputSource, char *compareProgPath, int resultFile);
 
-void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, int outputFile,
-                           char *compareProgPath);
+void checkExecutableAndRun(char *dir, char *studentDirName, int depth,
+                           int inputFile, int outputFile, char *compareProgPath,
+                           int resultFile, char *name);
 
 void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth,
-                 char *compareProgPath, char *initialPath, char *studentName);
+                 char *initialPath, char *studentName, int resultFile);
 
 void executeUserProg(char *dirName, int inputFileDescriptor,
-                     char *compareProgPath, char *givenOutputFile, int depth);
+                     char *compareProgPath, char *givenOutputFile,
+                     int depth, char *studentName, int resultFile);
 
 int runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth,
                char *studentName, int resultFile);
@@ -46,13 +49,14 @@ int is_C_file(char *pDirent);
 
 int checkForManyFOlders(char *temp);
 
+
 /**
  * the main function.
  * opens the config file,then opens the users directory
  * runs every user program and grade him.
- * @param argc
- * @param argv
- * @return
+ * @param argc - number of args
+ * @param argv- the args for the program
+ * @return - exit value
  */
 int main(int argc, char *argv[]) {
 
@@ -115,7 +119,7 @@ int main(int argc, char *argv[]) {
     strcpy(outputSource, paths);
 
     //run check on every student
-    startChecking(usersDirPath, inputSource, outputSource, resultFile);
+    startChecking(usersDirPath, inputSource, outputSource, initialProgPath, resultFile);
 
     //go back to initial directory
     chdir(initialProgPath);
@@ -127,23 +131,24 @@ int main(int argc, char *argv[]) {
 /**
  * get the users directory path and
  * start running on each student
- * fins is c file and grade him
- * @param usersDirPath
- * @param inputSource
- * @param outputSource
- * @param resultDescriptor
+ * fins is c file and grade him.
+ * @param usersDirPath - the users directory
+ * @param inputSource - the input for the user program
+ * @param outputSource - the output for the user program
+ * @param resultDescriptor -the file where to write is result
  */
-void startChecking(char *usersDirPath, char *inputSource, char *outputSource, int resultDescriptor) {
+void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
+                   char *compareProgPath, int resultFile) {
 
+    //declare variables
     struct dirent *pDirent;
     DIR *users;
     int inputDescriptor;
     int outputDescriptor;
-    char *studentName;
     int depth;
-    int grade;
     int temp;
     char tempPath[SIZE];
+
     //open users directory
     users = opendir(usersDirPath);
     if (users == NULL) {
@@ -168,17 +173,16 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
         exit(-1);
     }
 
-
     //iterate over users
     //for every user run test
     while ((pDirent = readdir(users)) != NULL) {
-        studentName = pDirent->d_name;
 
         //check for more then one directory
         strtok(tempPath, usersDirPath);
         strtok(tempPath, "/");
         strtok(tempPath, pDirent->d_name);
         temp = checkForManyFOlders(tempPath);
+
         //if there is more then one
         if (temp > 1) {
 
@@ -188,26 +192,39 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource, in
         //iterate and find file
         if (pDirent->d_type == DT_DIR) { //TODO will work or need stat?
             depth = 0;
+
             // find the exe compile an run is
             //then compare to the expected files
-            checkExecutableAndRun(usersDirPath, pDirent->d_name, depth, inputDescriptor, outputDescriptor);
+            checkExecutableAndRun(usersDirPath, pDirent->d_name, depth, inputDescriptor, outputDescriptor,
+                                  compareProgPath, resultFile, pDirent->d_name);
+
+            //reset the given input and output files
             lseek(inputDescriptor, 0, SEEK_SET);
             lseek(outputDescriptor, 0, SEEK_SET);
-            //has an executable
-            setGrade()
+
+            //reset working directory ro the users directory
+            chdir(usersDirPath);
             //todo what to do?
         }
-
     }
-
 }
 
 
-//close dir
+//todo close dir
 
-
+/**
+ * check in a given student directory if there is a c file
+ * if there is then compile an run it.
+ * @param dir - the curr directory
+ * @param studentDirName -students directory
+ * @param depth - the depth of the c file in the students directory
+ * @param inputFile - the input for the user program
+ * @param outputFile  - the output for the user program
+ * @param compareProgPath - the path to the compare program
+ * @param resultFile - the file where to write is grade
+ */
 void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, int outputFile,
-                           char *compareProgPath) {
+                           char *compareProgPath, int resultFile, char *name) {
 
     //declare vars
     char *temp = dir;
@@ -215,52 +232,68 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int input
     ++depth;
     DIR *studentDir;
 
-
-    strcat(dir, "/");
-    strcat(dir, studentDirName);
+    //create path to students directory and open it
+    strtok(dir, "/");
+    strtok(dir, studentDirName);
     studentDir = opendir(dir);
     if (studentDir == NULL) {
-
         //todo HANDLE
     }
 
     chdir(dir);
     //search for c file
     if (((pDirent = readdir(studentDir)) == NULL)) {
-        depth = -1;
-        setgrade()
+        setGrade(NO_C_FILE, 0, resultFile, name);
         return;
     } else if (is_C_file(pDirent->d_name) == 1) {
         //compile and run
-
-        compileFile(dir, pDirent->d_name, inputFile, outputFile, depth, , , studentDirName);
+        compileFile(dir, pDirent->d_name, inputFile, outputFile, depth,
+                    compareProgPath, studentDirName, resultFile);
         return;
     }
-    checkExecutableAndRun(dir, pDirent->d_name, depth, inputFile, outputFile, studentDirName);
+
+    //recursive call to search  for c file
+    checkExecutableAndRun(dir, pDirent->d_name, depth, inputFile, outputFile, studentDirName, resultFile, name);
 }
 
+/**
+ * gets a path to a c file
+ * opens a new son process and runs this
+ * file on the new process. then compare the
+ * result to a given file.
+ * @param dir - the directory where the file is
+ * @param fileName  - the file name
+ * @param inputFile - the input for the user program
+ * @param outputFile  - the outut for the user program
+ * @param depth - the depth the file is in
+ * @param initialPath - the place where the compare program is
+ * @param studentName - the student's name
+ * @param resultFile - the file where to write is grade
+ */
+void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth,
+                 char *initialPath, char *studentName, int resultFile) {
 
-void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth, char *compareProgPath,
-                 char *initialPath, char *studentName) {
-
+    //declare variables
     char exeFilePath[SIZE];
     int status;
     int pid;
-    char exeOutName[SIZE];
 
     //create exe path
     strtok(exeFilePath, dir);
     strtok(exeFilePath, "/");
     strtok(exeFilePath, fileName);
 
-
+    //create son process
     pid = fork();
-    //son process
+
+    //we are in the son process
     if (pid == 0) {
 
         execlp("gcc", "gcc", "-o", "student.out", fileName, NULL);
 
         //todo handle exec fail
+
+      //we are in the father process
     } else {
 
         //wait for sun
@@ -277,13 +310,13 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
             }
         } else if (WEXITSTATUS(status) == 0) {
 
-            executeUserProg(dir, inputFile, initialPath, outputFile, depth);
+            executeUserProg(dir, inputFile, initialPath, outputFile, depth, studentName, resultFile);
         }
     }
 }
 
 void executeUserProg(char *dirName, int inputFileDescriptor,
-                     char *compareProgPath, char *givenOutputFile, int depth) {
+                     char *compareProgPath, char *givenOutputFile, int depth, char *studentName, int resultFile) {
 
     //declare variables
     __pid_t pid;
@@ -344,13 +377,13 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
             setgrade
         }
         //run my compare program
-        result = runCompare(userOutputName, givenOutputFile, compareProgPath, depth, studentName, resultFile);
+        runCompare(userOutputName, givenOutputFile, compareProgPath, depth, studentName, resultFile);
 
         chdir(getenv("HOME"));
         chdir(dirName);
         unlink(userProgName);
         unlink(userOutputName);
-        return result;
+
 
     }
 
@@ -394,10 +427,7 @@ int runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth,
 
         }
 
-
     }
-
-
 }
 
 int calcGrade(int grade, int depth) {
