@@ -27,6 +27,10 @@ int main(int argc, char *argv[]) {
     char inputSource[SIZE];
     char usersDirPath[SIZE];
     char initialProgPath[SIZE];
+    int resultFile;
+    char *paths;
+    DIR *users;
+    ssize_t readNum;
     //check if we got the args
     if (argc < 2) {
         perror("wrong arguments");
@@ -45,37 +49,40 @@ int main(int argc, char *argv[]) {
 
     //set the reading to br from start
     off_t seek = lseek(config, 0, SEEK_SET);
-    if(seek ==-2) {
+    if (seek == -2) {
         //todo handle error
     }
 
 
-
     //create result file
-    int resultFile = open("result.csv", O_CREAT || O_APPEND || O_RDWR);
+    resultFile = open("result.csv", O_CREAT || O_APPEND || O_RDWR);
     if (resultFile < 0) {
         perror("failed open result file");
         exit(-1);
     }
 
     //read the all file
-    ssize_t n = read(config, buff, SIZE);
+    readNum = read(config, buff, SIZE);
+    if (readNum < 0) {
+        //todo handle error
+    }
+
     //cut every line of it
-    char *paths = strtok(buff, "\n");
+    //start with users directory
+    paths = strtok(buff, "\n");
     strcpy(usersDirPath, paths);
 
-    //go to the students directory
-    chdir(usersDirPath);
-
-    //initialize the input output files
+    //initialize the input output files pathes
     paths = strtok(NULL, "\n");
     strcpy(inputSource, paths);
     paths = strtok(NULL, "\n");
     strcpy(outputSource, paths);
 
+    //run check on every student
     startChecking(usersDirPath, inputSource, outputSource, resultFile);
 
-    //todo go back to initial path
+    //go back to initial directory
+    chdir(initialProgPath);
 
     close(config);
     return 0;
@@ -84,32 +91,37 @@ int main(int argc, char *argv[]) {
 void startChecking(char *usersDirPath, char *inputSource, char *outputSource, int resultDescriptor) {
 
     struct dirent *pDirent;
-
+    DIR *users;
+    int inputDescriptor;
+    int outputDescriptor;
+    char *studentName;
+    int depth;
+    int grade;
     //open users directory
-    DIR *users = opendir(usersDirPath);
+    users = opendir(usersDirPath);
     if (users == NULL) {
         perror("failed open users directory");
         exit(-1);
     }
 
+    //go to the students directory
+    chdir(usersDirPath);
+
     //open input source
-    int inputDescriptor = open(inputSource, O_RDONLY);
+    inputDescriptor = open(inputSource, O_RDONLY);
     if (inputDescriptor < 0) {
         perror("failed open input source");
         exit(-1);
     }
 
     //open output source
-    int outputDescriptor = open(outputSource, O_RDONLY);
+    outputDescriptor = open(outputSource, O_RDONLY);
     if (inputDescriptor < 0) {
         perror("failed open output source");
         exit(-1);
     }
 
     //iterate over users
-    char *studentName;
-    int depth;
-    int grade;
     //for every user run test
     while ((pDirent = readdir(users)) != NULL) {
         studentName = pDirent->d_name;
