@@ -7,19 +7,16 @@
 #include <sys/stat.h>
 #include <wait.h>
 
-
-#define ‫‪BAD_OUTPUT‬‬ 3
-#define ‫‪SIMILLAR_OUTPUT‬‬ 2
-#define CORRECT_OUTPUT 1
+#define SIZE 512
 #define ‫‪COMPILATION_ERROR‬‬ -2
 #define ‫‪TIMEOUT‬‬ -3
-#define NOT_ACCURATE_OUTPUT -4
-#define WRONG_OUTPUT -5
+#define MULTIPLE_DIRECTORIES -5
 #define NO_C_FILE -6
 #define FORK_FAILED -7
 #define CORE_DUMPED_EXEPTION -8
 #define WAIT_ERROR -9
-#define SIZE 512
+
+
 
 //the function deceleration
 void startChecking(char *usersDirPath, char *inputSource,
@@ -36,8 +33,8 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
                      char *compareProgPath, char *givenOutputFile,
                      int depth, char *studentName, int resultFile);
 
-int runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth,
-               char *studentName, int resultFile);
+void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth,
+                char *studentName, int resultFile);
 
 int calcGrade(int grade, int depth);
 
@@ -156,9 +153,6 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
         exit(-1);
     }
 
-    //go to the students directory
-    chdir(usersDirPath);
-
     //open input source
     inputDescriptor = open(inputSource, O_RDONLY);
     if (inputDescriptor < 0) {
@@ -177,6 +171,12 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
     //for every user run test
     while ((pDirent = readdir(users)) != NULL) {
 
+        //reset working directory ro the users directory
+        chdir(usersDirPath);
+        //reset the given input and output files
+        lseek(inputDescriptor, 0, SEEK_SET);
+        lseek(outputDescriptor, 0, SEEK_SET);
+
         //check for more then one directory
         strtok(tempPath, usersDirPath);
         strtok(tempPath, "/");
@@ -185,8 +185,8 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
 
         //if there is more then one
         if (temp > 1) {
-
-            //todo handle
+            setGrade(MULTIPLE_DIRECTORIES,0,resultFile,pDirent->d_name);
+            continue;
         }
 
         //iterate and find file
@@ -198,12 +198,6 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
             checkExecutableAndRun(usersDirPath, pDirent->d_name, depth, inputDescriptor, outputDescriptor,
                                   compareProgPath, resultFile, pDirent->d_name);
 
-            //reset the given input and output files
-            lseek(inputDescriptor, 0, SEEK_SET);
-            lseek(outputDescriptor, 0, SEEK_SET);
-
-            //reset working directory ro the users directory
-            chdir(usersDirPath);
             //todo what to do?
         }
     }
@@ -264,7 +258,7 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int input
  * @param dir - the directory where the file is
  * @param fileName  - the file name
  * @param inputFile - the input for the user program
- * @param outputFile  - the outut for the user program
+ * @param outputFile  - the output for the user program
  * @param depth - the depth the file is in
  * @param initialPath - the place where the compare program is
  * @param studentName - the student's name
@@ -293,7 +287,7 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
 
         //todo handle exec fail
 
-      //we are in the father process
+        //we are in the father process
     } else {
 
         //wait for sun
@@ -305,16 +299,31 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
 
         //check compile errors
         if (WIFEXITED (status)) {
+            //if there was a compile problem
             if (WEXITSTATUS(status) == 1) {
-                //todo handle error compiling
+                setGrade(COMPILATION_ERROR‬‬, 0, resultFile, studentName);
+                return;
+                //everything was fine
+            } else if (WEXITSTATUS(status) == 0) {
+                executeUserProg(dir, inputFile, initialPath, outputFile, depth, studentName, resultFile);
             }
-        } else if (WEXITSTATUS(status) == 0) {
-
-            executeUserProg(dir, inputFile, initialPath, outputFile, depth, studentName, resultFile);
         }
     }
 }
 
+/**
+ * runs a given path to an exe file
+ * read the input from a file.
+ * also write the output to a file.
+ * then compare the output the the wanted result
+ * @param dirName - the directory where the file is
+ * @param inputFileDescriptor - the input descriptor
+ * @param compareProgPath  - the path to compare program
+ * @param givenOutputFile - the wanted output.
+ * @param depth - the depth of the file's directory
+ * @param studentName - the name
+ * @param resultFile - the file where to write is grade
+ */
 void executeUserProg(char *dirName, int inputFileDescriptor,
                      char *compareProgPath, char *givenOutputFile, int depth, char *studentName, int resultFile) {
 
@@ -367,49 +376,63 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
 
         //we are father process
     } else {
+        //wait 5 seconds for son
         sleep(5);
-        //wait for son
+        //check if sin finished correctly
         if ((success = waitpid(pid, &status, WNOHANG)) == 0) {
-            //todo handle wait error
-            setgrade
+            setGrade(TIMEOUT‬‬, 0, resultFile, studentName);
         } else if (success == -1) {
             //todo handle error waiting
-            setgrade
+            //todo: exit? or set grade to 0?
+        } else {
+            //run my compare program
+            runCompare(userOutputName, givenOutputFile, compareProgPath, depth, studentName, resultFile);
         }
-        //run my compare program
-        runCompare(userOutputName, givenOutputFile, compareProgPath, depth, studentName, resultFile);
 
+        //restore position
         chdir(getenv("HOME"));
         chdir(dirName);
         unlink(userProgName);
         unlink(userOutputName);
-
+        return;
 
     }
-
-    //todo delete a.out file and output
-
 }
 
-int runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth, char *studentName, int resultFile) {
+/**
+ * the function that runs the compare program on
+ * the result.
+ * @param userOutput - the wanted output.
+ * @param outputFile - the wanted input.
+ * @param progDirPath - the path to compare program
+ * @param depth - the depth the file is in
+ * @param studentName - the student's name
+ * @param resultFile - the file where to write is grade
+ * @return
+ */
+void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth, char *studentName, int resultFile) {
+
+    //declare variables
     int status;
     __pid_t pid;
     DIR *progDir;
     int compareResult;
-    chdir(getenv("HOME"));
 
+    //go to the compare program path
+    chdir(getenv("HOME"));
     progDir = opendir(progDirPath);
     if (progDir == NULL) {
 
         //todo handle
     }
+    chdir(progDirPath);
 
-    chdir(progDir);
     //fork a son
     if ((pid = fork()) < 0) {
         //todo handle error
     }
 
+    //if we are the son process
     if (pid == 0) {
         //run my ex11 on it
         execlp(progDirPath, "ex11", userOutput, outputFile, NULL);
@@ -420,19 +443,28 @@ int runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth,
             // todo handle wait error
         }
 
+        //if exited normally
         if (WIFEXITED(status)) {
+            //then get the compare result given by the exit command of the compare program
             compareResult = WEXITSTATUS(status);
+            //set the students grade
             setGrade(compareResult, depth, resultFile, studentName);
         } else {
-
+            //todo handle
         }
 
     }
 }
 
+/**
+ * calculate the numeric grade that the student needs to get.
+ * @param grade - an indicator of the grade.
+ * @param depth - the depth pendelty
+ * @return - איק כןמשך ערשגק
+ */
 int calcGrade(int grade, int depth) {
-
     int temp;
+    //calc the grade
     switch (grade) {
         case 1:
             temp = (100) - (10 * depth);
@@ -453,9 +485,6 @@ int calcGrade(int grade, int depth) {
     }
 }
 
-void getStringGrade(char *buff, int grade, int depth) {
-
-}
 
 void setGrade(int grade, int depth, int resultFile, char *studentName) {
     char finalDetails[512];
@@ -514,4 +543,38 @@ int checkForManyFOlders(char *temp) {
         num++;
     }
     return num;
+}
+
+void getStringGrade(char *buff, int grade, int depth) {
+
+    memset(buff, '\0', sizeof(buff));
+    switch (grade) {
+        case 3:
+            if (depth > 0) { //todo 0 or 1?
+                strcpy(buff, "WRONG_DIRECTORY");
+                return;
+            }
+            strcpy(buff, "GREAT_JOB");
+            return;
+        case 2:
+            strcpy(buff, "SIMILAR_OUTPUT");
+            return;
+        case 1:
+            strcpy(buff, "WRONG_OUTPUT");
+            return;
+        case -2:
+            strcpy(buff, "COMPILATION_ERROR");
+            return;
+        case -3:
+            strcpy(buff, "TIMEOUT");
+            return;
+        case -4:
+            strcpy(buff, "NO_C_FILE");
+            return;
+        case -5:
+            strcpy(buff, MULTIPLE_DIRECTORIES);
+            return;
+        default:
+            break;
+    }
 }
