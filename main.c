@@ -8,21 +8,20 @@
 #include <wait.h>
 
 #define SIZE 512
-#define ‫‪COMPILATION_ERROR‬‬ -2
-#define ‫‪TIMEOUT‬‬ -3
+#define COMPILATION_ERROR -2
+#define TIMEOUT -3
 #define MULTIPLE_DIRECTORIES -5
 #define NO_C_FILE -6
 #define FORK_FAILED -7
 #define CORE_DUMPED_EXEPTION -8
 #define WAIT_ERROR -9
 
-
 //the function deceleration
 void startChecking(char *usersDirPath, char *inputSource,
                    char *outputSource, char *compareProgPath, int resultFile);
 
 void checkExecutableAndRun(char *dir, char *studentDirName, int depth,
-                           int inputFile, int outputFile, char *compareProgPath,
+                           int inputFile, char* outputFile, char *compareProgPath,
                            int resultFile, char *name);
 
 void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth,
@@ -63,6 +62,7 @@ int main(int argc, char *argv[]) {
     char usersDirPath[SIZE];
     char initialProgPath[SIZE];
     int resultFile;
+    int config;
     char *paths;
     ssize_t readNum;
 
@@ -78,8 +78,8 @@ int main(int argc, char *argv[]) {
     }
 
     //open the config file to read
-    int config = open(argv[1], O_RDONLY);
-    if (config == NULL) {
+    config = open(argv[1], O_RDONLY);
+    if (config < 0) {
         perror("failed open config file");
         exit(-1);
     }
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
     }
 
     //create result file
-    resultFile = open("result.csv", O_CREAT || O_APPEND || O_RDWR);
+    resultFile = open("result.csv", O_CREAT | O_APPEND | O_RDWR,0666);
     if (resultFile < 0) {
         perror("failed open result file");
         exit(-1);
@@ -193,7 +193,7 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
 
             // find the exe compile an run is
             //then compare to the expected files
-            checkExecutableAndRun(usersDirPath, pDirent->d_name, depth, inputDescriptor, outputDescriptor,
+            checkExecutableAndRun(usersDirPath, pDirent->d_name, depth, inputDescriptor, outputSource,
                                   compareProgPath, resultFile, pDirent->d_name);
 
             //todo what to do?
@@ -215,7 +215,7 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
  * @param compareProgPath - the path to the compare program
  * @param resultFile - the file where to write is grade
  */
-void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, int outputFile,
+void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, char* outputFile,
                            char *compareProgPath, int resultFile, char *name) {
 
     //declare vars
@@ -299,7 +299,7 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
         if (WIFEXITED (status)) {
             //if there was a compile problem
             if (WEXITSTATUS(status) == 1) {
-                setGrade(COMPILATION_ERROR‬‬, 0, resultFile, studentName);
+                setGrade(COMPILATION_ERROR, 0, resultFile, studentName);
                 return;
                 //everything was fine
             } else if (WEXITSTATUS(status) == 0) {
@@ -378,7 +378,7 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
         sleep(5);
         //check if sin finished correctly
         if ((success = waitpid(pid, &status, WNOHANG)) == 0) {
-            setGrade(TIMEOUT‬‬, 0, resultFile, studentName);
+            setGrade(TIMEOUT, 0, resultFile, studentName);
         } else if (success == -1) {
             //todo handle error waiting
             //todo: exit? or set grade to 0?
