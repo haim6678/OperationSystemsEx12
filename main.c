@@ -15,6 +15,10 @@
 #define FORK_FAILED -7
 #define CORE_DUMPED_EXEPTION -8
 #define WAIT_ERROR -9
+#define OPEN_FILE_FAIL "filed to open file"
+#define SEEK_FAIL "failed seek file"
+#define READ_FAIL "failed reading"
+#define DIR_OPEN_FAIL "failed to open dir"
 
 //the function deceleration
 void startChecking(char *usersDirPath, char *inputSource,
@@ -67,6 +71,7 @@ int main(int argc, char *argv[]) {
     char *paths;
     ssize_t readNum;
 
+
     //check if we got the args
     if (argc < 2) {
         perror("wrong arguments");
@@ -81,27 +86,28 @@ int main(int argc, char *argv[]) {
     //open the config file to read
     config = open(argv[1], O_RDONLY);
     if (config < 0) {
-        perror("failed open config file");
+        write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
         exit(-1);
     }
 
     //set the reading to br from start
     off_t seek = lseek(config, 0, SEEK_SET);
     if (seek == -2) {
-        //todo handle error
+        write(2, SEEK_FAIL, strlen(SEEK_FAIL));
     }
 
     //create result file
     resultFile = open("result.csv", O_CREAT | O_APPEND | O_RDWR, 0666);
     if (resultFile < 0) {
-        perror("failed open result file");
+        write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
         exit(-1);
     }
 
     //read the all file
     readNum = read(config, buff, SIZE);
     if (readNum < 0) {
-        //todo handle error
+        write(2, READ_FAIL, strlen(READ_FAIL));
+        exit(-1);
     }
 
     //cut every line of it
@@ -152,8 +158,7 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
     //open users directory
     users = opendir(usersDirPath);
     if (users == NULL) {
-        perror("failed open users directory");
-        exit(-1);
+        write(2, DIR_OPEN_FAIL, strlen(DIR_OPEN_FAIL));
     }
 
     //open input source
@@ -164,11 +169,12 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
     }
 
     //open output source
-    outputDescriptor = open(outputSource, O_RDONLY);
-    if (inputDescriptor < 0) {
-        perror("failed open output source");
+    outputDescriptor = open(outputSource, 0666);
+    if (outputDescriptor < 0) {
+        write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
         exit(-1);
     }
+
 
     //iterate over users
     //for every user run test
@@ -245,8 +251,8 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int input
 
     chdir(dir);
     pDirent = readdir(studentDir);
-    while ((pDirent != NULL) &&
-           ((strcmp(pDirent->d_name, ".") == 0) || (strcmp(pDirent->d_name, "..") == 0))) {
+    while ((pDirent != NULL) && (((strcmp(pDirent->d_name, ".") == 0) || (strcmp(pDirent->d_name, "..") == 0)) ||
+                                 ((!(pDirent->d_type == DT_DIR) && (is_C_file(pDirent->d_name) == 0))))) {
         pDirent = readdir(studentDir);
     }
     //search for c file
@@ -287,7 +293,7 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
     int pid;
 
     //create exe path
-    memset(exeFilePath,0,SIZE);
+    memset(exeFilePath, 0, SIZE);
     strcpy(exeFilePath, dir);
     strcat(exeFilePath, "/");
     strcat(exeFilePath, fileName);
@@ -345,36 +351,24 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
     //declare variables
     __pid_t pid;
     int status;
-    int result;
     int success;
     int userOutputDescriptor;
     char userProgName[SIZE];
     char userOutputName[SIZE];
 
     //create output file
-    userOutputDescriptor = open("studentOutput", O_RDWR | O_APPEND | O_EXCL, 0666);
 
-    //create program out path
-    strtok(userProgName, dirName);
-    strtok(userProgName, "/");
-    strtok(userProgName, "student.out");
+
+    memset(userOutputName, 0, SIZE);
+    memset(userProgName, 0, SIZE);
+
+    strcat(userProgName, "student");
 
     //create user output path
-    strtok(userOutputName, dirName);
-    strtok(userOutputName, "/");
-    strtok(userOutputName, "studentOutput");
+    strcpy(userOutputName, dirName);
+    strcat(userOutputName, "/");
+    strcat(userOutputName, "studentOutput");
 
-    //use dup for input
-    success = dup2(inputFileDescriptor, 0);
-    if (success == -1) {
-        //todo handle dup fail
-    }
-
-    //ude dup for output
-    success = dup2(userOutputDescriptor, 1);
-    if (success == -1) {
-        //todo handle dup fail
-    }
 
     //create sun to run user program
     pid = fork();
@@ -385,10 +379,27 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
     //we are son process
     if (pid == 0) {
         //run program
-        execlp(dirName, userProgName, NULL);
+        userOutputDescriptor = open("studentOutput", O_CREAT | O_RDWR, 0666); //todo .txt??
+        if (userOutputDescriptor < 0) {
+            //todo handle
+        }
+        chdir(dirName);
+        //use dup for input
+        success = dup2(inputFileDescriptor, 0);
+        if (success == -1) {
+            //todo handle dup fail
+        }
+
+        //ude dup for output
+        success = dup2(userOutputDescriptor, 1);
+        if (success == -1) {
+            //todo handle dup fail
+        }
+        execlp("./student.out", "student.out", NULL);
 
         //todo check for timeout or exeptiom and set grade
-
+        perror("error");
+        exit(-1);
         //we are father process
     } else {
         //wait 5 seconds for son
@@ -450,7 +461,7 @@ void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth
     //if we are the son process
     if (pid == 0) {
         //run my ex11 on it
-        execlp(progDirPath, "ex11", userOutput, outputFile, NULL);
+        execlp("./ex11", "ex11", userOutput, outputFile, NULL);//todo change name
         //check if fail
     } else {
 
@@ -460,14 +471,13 @@ void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth
 
         //if exited normally
         if (WIFEXITED(status)) {
-            //then get the compare result given by the exit command of the compare program
+            //then get the compare result, given by the exit command of the compare program
             compareResult = WEXITSTATUS(status);
             //set the students grade
             setGrade(compareResult, depth, resultFile, studentName);
         } else {
             //todo handle
         }
-
     }
 }
 
