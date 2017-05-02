@@ -17,7 +17,6 @@
 #define WAIT_ERROR -9
 
 
-
 //the function deceleration
 void startChecking(char *usersDirPath, char *inputSource,
                    char *outputSource, char *compareProgPath, int resultFile);
@@ -185,10 +184,9 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
 
         //if there is more then one
         if (temp > 1) {
-            setGrade(MULTIPLE_DIRECTORIES,0,resultFile,pDirent->d_name);
+            setGrade(MULTIPLE_DIRECTORIES, 0, resultFile, pDirent->d_name);
             continue;
         }
-
         //iterate and find file
         if (pDirent->d_type == DT_DIR) { //TODO will work or need stat?
             depth = 0;
@@ -460,7 +458,7 @@ void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth
  * calculate the numeric grade that the student needs to get.
  * @param grade - an indicator of the grade.
  * @param depth - the depth pendelty
- * @return - איק כןמשך ערשגק
+ * @return - the final grade
  */
 int calcGrade(int grade, int depth) {
     int temp;
@@ -485,23 +483,34 @@ int calcGrade(int grade, int depth) {
     }
 }
 
-
+/**
+ * get the student's grade.
+ * with a faw parameters.
+ * calc is grade according to the parameters and write is
+ * grade to the file.
+ * @param grade - the indicator for the grade
+ * @param depth - the depth of is c file
+ * @param resultFile - the file to write to.
+ * @param studentName - his name.
+ */
 void setGrade(int grade, int depth, int resultFile, char *studentName) {
+
+    //declare variables
     char finalDetails[512];
     char gradeDescription[128];
     char gradeString[128];
     int temp;
     ssize_t writen;
 
-    strtok(studentName, ",");
-    //convert grade to string
 
+    //convert grade to string
     temp = calcGrade(grade, depth);
     writen = snprintf(gradeString, 128, "%d", temp);
     if (writen < 0) {
         //todo handle this
     }
 
+    //gets the string describes his grade
     getStringGrade(gradeDescription, grade, depth);
 
     //create one long string
@@ -520,7 +529,12 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
     return;
 }
 
-int is_C_file(char *pDirent) {
+/**
+ * check if a given path is a path to a c file
+ * @param pDirent - the path
+ * @return  -if it is a c file
+ */
+int is_C_file(char *pDirent) { //todo will work or need to use lstat?
     size_t suffix = strlen(pDirent) - 1;
     if ((suffix > 2) && (pDirent[suffix] == 'c') && (pDirent[suffix - 1] == '.')) { //todo >2 or >=2
         return 1;
@@ -528,6 +542,12 @@ int is_C_file(char *pDirent) {
     return 0;
 }
 
+/**
+ * check if a given directory has more then one
+ * subdirectory in a given directory
+ * @param temp - the given directory
+ * @return - if more then one sub-directory
+ */
 int checkForManyFOlders(char *temp) {
 
     struct dirent *pDirnet;
@@ -539,12 +559,22 @@ int checkForManyFOlders(char *temp) {
         //TODO HANDLE!
     }
 
+    //count the sub directories
     while ((pDirnet = readdir(dir)) != NULL) {
-        num++;
+        if (pDirnet->d_type == DT_DIR) {
+            num++;
+        }
     }
     return num;
 }
 
+/**
+ * gets a string that gives a feedback on
+ * a students grade.
+ * @param buff - where to enter the string
+ * @param grade - the grade
+ * @param depth  - the depth of the c file.
+ */
 void getStringGrade(char *buff, int grade, int depth) {
 
     memset(buff, '\0', sizeof(buff));
@@ -572,7 +602,7 @@ void getStringGrade(char *buff, int grade, int depth) {
             strcpy(buff, "NO_C_FILE");
             return;
         case -5:
-            strcpy(buff, MULTIPLE_DIRECTORIES);
+            strcpy(buff, "MULTIPLE_DIRECTORIES");
             return;
         default:
             break;
