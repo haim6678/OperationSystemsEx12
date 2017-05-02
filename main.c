@@ -21,7 +21,7 @@ void startChecking(char *usersDirPath, char *inputSource,
                    char *outputSource, char *compareProgPath, int resultFile);
 
 void checkExecutableAndRun(char *dir, char *studentDirName, int depth,
-                           int inputFile, char* outputFile, char *compareProgPath,
+                           int inputFile, char *outputFile, char *compareProgPath,
                            int resultFile, char *name);
 
 void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth,
@@ -61,6 +61,7 @@ int main(int argc, char *argv[]) {
     char inputSource[SIZE];
     char usersDirPath[SIZE];
     char initialProgPath[SIZE];
+
     int resultFile;
     int config;
     char *paths;
@@ -91,7 +92,7 @@ int main(int argc, char *argv[]) {
     }
 
     //create result file
-    resultFile = open("result.csv", O_CREAT | O_APPEND | O_RDWR,0666);
+    resultFile = open("result.csv", O_CREAT | O_APPEND | O_RDWR, 0666);
     if (resultFile < 0) {
         perror("failed open result file");
         exit(-1);
@@ -107,6 +108,7 @@ int main(int argc, char *argv[]) {
     //start with users directory
     paths = strtok(buff, "\n");
     strcpy(usersDirPath, paths);
+
 
     //initialize the input output files pathes
     paths = strtok(NULL, "\n");
@@ -144,7 +146,9 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
     int depth;
     int temp;
     char tempPath[SIZE];
+    char usersPathBackup[SIZE];
 
+    strcpy(usersPathBackup, usersDirPath);
     //open users directory
     users = opendir(usersDirPath);
     if (users == NULL) {
@@ -170,6 +174,11 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
     //for every user run test
     while ((pDirent = readdir(users)) != NULL) {
 
+
+        if ((strcmp(pDirent->d_name, ".") == 0)
+            || (strcmp(pDirent->d_name, "..") == 0)) {
+            continue;
+        }
         //reset working directory ro the users directory
         chdir(usersDirPath);
         //reset the given input and output files
@@ -177,9 +186,10 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
         lseek(outputDescriptor, 0, SEEK_SET);
 
         //check for more then one directory
-        strtok(tempPath, usersDirPath);
-        strtok(tempPath, "/");
-        strtok(tempPath, pDirent->d_name);
+        memset(tempPath, 0, SIZE); //todo this everywhere!
+        strcpy(tempPath, usersPathBackup);
+        strcat(tempPath, "/");
+        strcat(tempPath, pDirent->d_name);
         temp = checkForManyFOlders(tempPath);
 
         //if there is more then one
@@ -190,7 +200,7 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
         //iterate and find file
         if (pDirent->d_type == DT_DIR) { //TODO will work or need stat?
             depth = 0;
-
+            strcpy(usersDirPath, usersPathBackup);
             // find the exe compile an run is
             //then compare to the expected files
             checkExecutableAndRun(usersDirPath, pDirent->d_name, depth, inputDescriptor, outputSource,
@@ -215,26 +225,32 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
  * @param compareProgPath - the path to the compare program
  * @param resultFile - the file where to write is grade
  */
-void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, char* outputFile,
+void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, char *outputFile,
                            char *compareProgPath, int resultFile, char *name) {
 
-    //declare vars
-    char *temp = dir;
+    //declare var
+    char originDir[SIZE];
+    strcpy(originDir, dir);
     struct dirent *pDirent;
     ++depth;
     DIR *studentDir;
 
     //create path to students directory and open it
-    strtok(dir, "/");
-    strtok(dir, studentDirName);
+    strcat(dir, "/");
+    strcat(dir, studentDirName);
     studentDir = opendir(dir);
     if (studentDir == NULL) {
         //todo HANDLE
     }
 
     chdir(dir);
+    pDirent = readdir(studentDir);
+    while ((pDirent != NULL) &&
+           ((strcmp(pDirent->d_name, ".") == 0) || (strcmp(pDirent->d_name, "..") == 0))) {
+        pDirent = readdir(studentDir);
+    }
     //search for c file
-    if (((pDirent = readdir(studentDir)) == NULL)) {
+    if ((pDirent == NULL)) {
         setGrade(NO_C_FILE, 0, resultFile, name);
         return;
     } else if (is_C_file(pDirent->d_name) == 1) {
@@ -271,9 +287,10 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
     int pid;
 
     //create exe path
-    strtok(exeFilePath, dir);
-    strtok(exeFilePath, "/");
-    strtok(exeFilePath, fileName);
+    memset(exeFilePath,0,SIZE);
+    strcpy(exeFilePath, dir);
+    strcat(exeFilePath, "/");
+    strcat(exeFilePath, fileName);
 
     //create son process
     pid = fork();
@@ -514,11 +531,12 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
     getStringGrade(gradeDescription, grade, depth);
 
     //create one long string
-    strtok(finalDetails, studentName);
-    strtok(finalDetails, ",");
-    strtok(finalDetails, gradeString);
-    strtok(finalDetails, ",");
-    strtok(finalDetails, gradeDescription);
+    memset(finalDetails, 0, 512);
+    strcpy(finalDetails, studentName);
+    strcat(finalDetails, ",");
+    strcat(finalDetails, gradeString);
+    strcat(finalDetails, ",");
+    strcat(finalDetails, gradeDescription);
 
     //write this string
     writen = write(resultFile, studentName, strlen(finalDetails));
@@ -561,6 +579,10 @@ int checkForManyFOlders(char *temp) {
 
     //count the sub directories
     while ((pDirnet = readdir(dir)) != NULL) {
+        if ((strcmp(pDirnet->d_name, ".") == 0)
+            || (strcmp(pDirnet->d_name, "..") == 0)) {
+            continue;
+        }
         if (pDirnet->d_type == DT_DIR) {
             num++;
         }
@@ -598,7 +620,7 @@ void getStringGrade(char *buff, int grade, int depth) {
         case -3:
             strcpy(buff, "TIMEOUT");
             return;
-        case -4:
+        case -6:
             strcpy(buff, "NO_C_FILE");
             return;
         case -5:
