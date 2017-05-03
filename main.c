@@ -22,13 +22,13 @@
 #define DIR_OPEN_FAIL "failed to open dir"
 #define WRITE_ERROR "failed write"
 #define EXEC_FAIL "failed exec a son program"
+
 //the function deceleration
 void startChecking(char *usersDirPath, char *inputSource,
                    char *outputSource, char *compareProgPath, int resultFile);
 
-void checkExecutableAndRun(char *dir, char *studentDirName, int depth,
-                           int inputFile, char *outputFile, char *compareProgPath,
-                           int resultFile, char *name);
+void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
+                           int *reslutSearch, char *cPath, char *fileName);
 
 void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth,
                  char *initialPath, char *studentName, int resultFile);
@@ -155,6 +155,8 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
     int temp;
     char tempPath[SIZE];
     char usersPathBackup[SIZE];
+    char stuentNameBackup[SIZE];
+    char fileName[SIZE];
 
     strcpy(usersPathBackup, usersDirPath);
     //open users directory
@@ -182,39 +184,43 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
     //for every user run test
     while ((pDirent = readdir(users)) != NULL) {
 
-
+        //check for . or .. folders
         if ((strcmp(pDirent->d_name, ".") == 0)
             || (strcmp(pDirent->d_name, "..") == 0)) {
             continue;
         }
+
         //reset working directory ro the users directory
         chdir(usersDirPath);
         //reset the given input and output files
         lseek(inputDescriptor, 0, SEEK_SET);
         lseek(outputDescriptor, 0, SEEK_SET);
 
-        //check for more then one directory
-        memset(tempPath, 0, SIZE); //todo this everywhere!
-        strcpy(tempPath, usersPathBackup);
-        strcat(tempPath, "/");
-        strcat(tempPath, pDirent->d_name);
-        temp = checkForManyFOlders(tempPath);
 
-        //if there is more then one
-        if (temp > 1) {
-            setGrade(MULTIPLE_DIRECTORIES, 0, resultFile, pDirent->d_name);
-            continue;
-        }
         //iterate and find file
         if (pDirent->d_type == DT_DIR) {
             depth = 0;
+            temp = 0;
             strcpy(usersDirPath, usersPathBackup);
+            strcpy(stuentNameBackup, pDirent->d_name);
             // find the exe compile an run is
             //then compare to the expected files
-            checkExecutableAndRun(usersDirPath, pDirent->d_name, depth, inputDescriptor, outputSource,
-                                  compareProgPath, resultFile, pDirent->d_name);
-
-
+            checkExecutableAndRun(usersDirPath, pDirent->d_name, &depth, &temp, tempPath, fileName);
+            //check result
+            if (temp == 1) {
+                //compile and run
+                compileFile(usersDirPath, fileName, inputDescriptor, outputSource,
+                            depth, compareProgPath, stuentNameBackup, resultFile);
+                continue;
+            } else if (temp == 0) {
+                //no c file
+                setGrade(NO_C_FILE, 0, resultFile, stuentNameBackup);
+                continue;
+            } else if (temp == MULTIPLE_DIRECTORIES) {
+                //multiple directories
+                setGrade(MULTIPLE_DIRECTORIES, 0, resultFile, stuentNameBackup);
+                continue;
+            }
         }
     }
 }
@@ -233,44 +239,60 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
  * @param compareProgPath - the path to the compare program
  * @param resultFile - the file where to write is grade
  */
-void checkExecutableAndRun(char *dir, char *studentDirName, int depth, int inputFile, char *outputFile,
-                           char *compareProgPath, int resultFile, char *name) {
+void
+checkExecutableAndRun(char *dir, char *studentDirName, int *depth, int *reslutSearch, char *cPath, char *fileName) {
 
     //declare var
-    char originDir[SIZE];
-    strcpy(originDir, dir);
     struct dirent *pDirent;
-    ++depth;
     DIR *studentDir;
+    int temp;
 
     //create path to students directory and open it
     strcat(dir, "/");
     strcat(dir, studentDirName);
     studentDir = opendir(dir);
+
+    //open it
     if (studentDir == NULL) {
-        write(2,DIR_OPEN_FAIL,strlen(DIR_OPEN_FAIL));
+        write(2, DIR_OPEN_FAIL, strlen(DIR_OPEN_FAIL));
         exit(-1);
     }
-    chdir(dir);
 
+    chdir(dir);
+    //check for many folders
+    temp = checkForManyFOlders(dir);
+    if (temp > 1) {
+        *reslutSearch = MULTIPLE_DIRECTORIES;
+        return;
+    }
+
+    //get next entry in directory
     pDirent = readdir(studentDir);
     while ((pDirent != NULL) && (((strcmp(pDirent->d_name, ".") == 0) || (strcmp(pDirent->d_name, "..") == 0)) ||
-                                 ((!(pDirent->d_type == DT_DIR) && (is_C_file(pDirent->d_name) == 0))))) {
+                                 ((!(pDirent->d_type == DT_DIR) &&
+                                   (is_C_file(pDirent->d_name) == 0))))) { //todo check condition
         pDirent = readdir(studentDir);
     }
+
     //search for c file
     if ((pDirent == NULL)) {
-        setGrade(NO_C_FILE, 0, resultFile, name);
         return;
+
+        //if we did found a c file
     } else if (is_C_file(pDirent->d_name) == 1) {
-        //compile and run
-        compileFile(dir, pDirent->d_name, inputFile, outputFile, depth,
-                    compareProgPath, studentDirName, resultFile);
+        //mark as found and save location
+        memset(cPath, 0, SIZE);
+        strcpy(cPath, dir);
+        strcat(cPath, "/");
+        strcat(cPath, studentDirName);
+        strcpy(fileName, pDirent->d_name);
+        *reslutSearch = 1;
         return;
     }
 
+    (*depth)++;
     //recursive call to search  for c file
-    checkExecutableAndRun(dir, pDirent->d_name, depth, inputFile, outputFile, studentDirName, resultFile, name);
+    checkExecutableAndRun(dir, pDirent->d_name, depth, reslutSearch, cPath, fileName);
 }
 
 /**
@@ -304,8 +326,8 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
     //create son process
     pid = fork();
 
-    if(pid <0){
-        write(2,FORK_FAILED,strlen(FORK_FAILED));
+    if (pid < 0) {
+        write(2, FORK_FAILED, strlen(FORK_FAILED));
         exit(-1);
     }
     //we are in the son process
@@ -313,7 +335,7 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
 
         execlp("gcc", "gcc", "-o", "student.out", fileName, NULL);
 
-        write(2,EXEC_FAIL,strlen(EXEC_FAIL));
+        write(2, EXEC_FAIL, strlen(EXEC_FAIL));
         exit(-1);
 
         //we are in the father process
@@ -322,8 +344,8 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
         //wait for sun
         pid = waitpid(pid, &status, 0);
         //check wait succeed
-        if (pid == -1) {
-            write(2,WAIT_ERROR,strlen(WAIT_ERROR));
+        if (pid == -1) { //todo what if there are a faw c files
+            write(2, WAIT_ERROR, strlen(WAIT_ERROR));
             exit(-1);
         };
 
@@ -365,13 +387,10 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
     char userProgName[SIZE];
     char userOutputName[SIZE];
 
-    //create output file
-
-
+    //create output file path
     memset(userOutputName, 0, SIZE);
     memset(userProgName, 0, SIZE);
-
-    strcat(userProgName, "student");
+    strcat(userProgName, "student.out");
 
     //create user output path
     strcpy(userOutputName, dirName);
@@ -382,7 +401,7 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
     //create sun to run user program
     pid = fork();
     if (pid < 0) {
-        write(2,FORK_FAILED,strlen(FORK_FAILED));
+        write(2, FORK_FAILED, strlen(FORK_FAILED));
         exit(-1);
     }
 
@@ -391,21 +410,21 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
         //run program
         userOutputDescriptor = open("studentOutput", O_CREAT | O_RDWR, 0666); //todo .txt??
         if (userOutputDescriptor < 0) {
-            write(2,OPEN_FILE_FAIL,strlen(OPEN_FILE_FAIL));
+            write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
             exit(-1);
         }
         chdir(dirName);
         //use dup for input
         success = dup2(inputFileDescriptor, 0);
         if (success == -1) {
-            write(2,DUP_FAIL,strlen(DUP_FAIL));
+            write(2, DUP_FAIL, strlen(DUP_FAIL));
             exit(-1);
         }
 
         //ude dup for output
         success = dup2(userOutputDescriptor, 1);
         if (success == -1) {
-            write(2,DUP_FAIL,strlen(DUP_FAIL));
+            write(2, DUP_FAIL, strlen(DUP_FAIL));
             exit(-1);
         }
         execlp("./student.out", "student.out", NULL);
@@ -413,7 +432,7 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
         //TODO CHECK CORE DUMPED
 
 
-        write(2,EXEC_FAIL,strlen(EXEC_FAIL));
+        write(2, EXEC_FAIL, strlen(EXEC_FAIL));
         exit(-1);
         //we are father process
     } else {
@@ -423,7 +442,7 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
         if ((success = waitpid(pid, &status, WNOHANG)) == 0) {
             setGrade(TIMEOUT, 0, resultFile, studentName);
         } else if (success == -1) {
-            write(2,WAIT_ERROR,strlen(WAIT_ERROR));
+            write(2, WAIT_ERROR, strlen(WAIT_ERROR));
             exit(-1);
         } else {
             //run my compare program
@@ -463,14 +482,14 @@ void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth
     chdir(getenv("HOME"));
     progDir = opendir(progDirPath);
     if (progDir == NULL) {
-        write(2,DIR_OPEN_FAIL,strlen(DIR_OPEN_FAIL));
+        write(2, DIR_OPEN_FAIL, strlen(DIR_OPEN_FAIL));
         exit(-1);
     }
     chdir(progDirPath);
 
     //fork a son
     if ((pid = fork()) < 0) {
-        write(2,FORK_FAILED,strlen(FORK_FAILED));
+        write(2, FORK_FAILED, strlen(FORK_FAILED));
         exit(-1);
     }
 
@@ -479,12 +498,12 @@ void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth
         //run my ex11 on it
         execlp("./ex11", "ex11", userOutput, outputFile, NULL);//todo change name
         //check if fail
-        write(2,EXEC_FAIL,strlen(EXEC_FAIL));
+        write(2, EXEC_FAIL, strlen(EXEC_FAIL));
         exit(-1);
 
     } else {
         if (waitpid(pid, &status, 0) == -1) {
-            write(2,WAIT_ERROR,strlen(WAIT_ERROR));
+            write(2, WAIT_ERROR, strlen(WAIT_ERROR));
             exit(-1);
         }
 
@@ -570,7 +589,7 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
     //write this string
     writen = write(resultFile, studentName, strlen(finalDetails));
     if (writen < 0) {
-        write(2,WRITE_ERROR,strlen(WRITE_ERROR));
+        write(2, WRITE_ERROR, strlen(WRITE_ERROR));
         exit(-1);
     }
 
@@ -604,7 +623,7 @@ int checkForManyFOlders(char *temp) {
     dir = opendir(temp);
     if (dir == NULL) {
 
-        write(2,DIR_OPEN_FAIL,strlen(DIR_OPEN_FAIL));
+        write(2, DIR_OPEN_FAIL, strlen(DIR_OPEN_FAIL));
         exit(-1);
     }
 
