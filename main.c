@@ -246,6 +246,8 @@ checkExecutableAndRun(char *dir, char *studentDirName, int *depth, int *reslutSe
     struct dirent *pDirent;
     DIR *studentDir;
     int temp;
+    char tempDir[SIZE];
+    memset(tempDir, 0, SIZE);
 
     //create path to students directory and open it
     strcat(dir, "/");
@@ -266,7 +268,7 @@ checkExecutableAndRun(char *dir, char *studentDirName, int *depth, int *reslutSe
         return;
     }
 
-    //get next entry in directory
+    //get next entry in directory check if it's . or .. or just a file
     pDirent = readdir(studentDir);
     while ((pDirent != NULL) && (((strcmp(pDirent->d_name, ".") == 0) || (strcmp(pDirent->d_name, "..") == 0)) ||
                                  ((!(pDirent->d_type == DT_DIR) &&
@@ -274,12 +276,22 @@ checkExecutableAndRun(char *dir, char *studentDirName, int *depth, int *reslutSe
         pDirent = readdir(studentDir);
     }
 
-    //search for c file
+
+    //search for c file ended and no file or another directory
     if ((pDirent == NULL)) {
         return;
+    }
 
-        //if we did found a c file
-    } else if (is_C_file(pDirent->d_name) == 1) {
+    //we found a directory
+    if ((pDirent->d_type == DT_DIR)) {
+        strcpy(tempDir, pDirent->d_name);
+        while ((pDirent != NULL) && (is_C_file(pDirent->d_name) == 0)) {
+            pDirent = readdir(studentDir);
+        }
+    }
+
+    //if we did found a c file
+    if ((pDirent != NULL) && (is_C_file(pDirent->d_name) == 1)) {
         //mark as found and save location
         memset(cPath, 0, SIZE);
         strcpy(cPath, dir);
@@ -289,10 +301,12 @@ checkExecutableAndRun(char *dir, char *studentDirName, int *depth, int *reslutSe
         *reslutSearch = 1;
         return;
     }
-
+    /*if ((pDirent == NULL) && (strcmp(tempDir, studentDirName) == 0)) {
+        return;;
+    }*/
     (*depth)++;
     //recursive call to search  for c file
-    checkExecutableAndRun(dir, pDirent->d_name, depth, reslutSearch, cPath, fileName);
+    checkExecutableAndRun(dir, tempDir, depth, reslutSearch, cPath, fileName);
 }
 
 /**
