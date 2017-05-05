@@ -4,7 +4,6 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <memory.h>
-#include <sys/stat.h>
 #include <wait.h>
 
 #define SIZE 512
@@ -73,7 +72,6 @@ int main(int argc, char *argv[]) {
     int resultFile;
     int config;
     char *paths;
-    int check;
     ssize_t readNum;
 
     //check if we got the args
@@ -96,8 +94,9 @@ int main(int argc, char *argv[]) {
 
     //set the reading to br from start
     off_t seek = lseek(config, 0, SEEK_SET);
-    if (seek == -2) {
+    if (seek < 0) {
         write(2, SEEK_FAIL, strlen(SEEK_FAIL));
+        exit(-1); //todo todo this??
     }
 
     //create result file
@@ -155,28 +154,29 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
                    char *compareProgPath, int resultFile) {
 
     //declare variables
-    struct dirent *pDirent;
-    DIR *users;
     int inputDescriptor;
     int outputDescriptor;
     int depth;
     int temp;
-    char tempPath[SIZE];
+    struct dirent *pDirent;
+    DIR *users;
     char usersPathBackup[SIZE];
     char stuentNameBackup[SIZE];
     char fileName[SIZE];
 
+    //save the name of the students directory
     strcpy(usersPathBackup, usersDirPath);
     //open users directory
     users = opendir(usersDirPath);
-    if (users == NULL) {
+    if (users == NULL) { //todo is opendir and readdir are sys calls? how to handle them?
         write(2, DIR_OPEN_FAIL, strlen(DIR_OPEN_FAIL));
+        exit(-1);
     }
 
     //open input source
     inputDescriptor = open(inputSource, O_RDONLY);
     if (inputDescriptor < 0) {
-        perror("failed open input source");
+        write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
         exit(-1);
     }
 
@@ -201,9 +201,14 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
         strcpy(usersDirPath, usersPathBackup);
         chdir(usersDirPath);
         //reset the given input and output files
-        lseek(inputDescriptor, 0, SEEK_SET);
-        lseek(outputDescriptor, 0, SEEK_SET);
-
+        if (lseek(inputDescriptor, 0, SEEK_SET) < 0) {
+            write(2, SEEK_FAIL, strlen(SEEK_FAIL));
+            exit(-1);
+        }
+        if (lseek(outputDescriptor, 0, SEEK_SET) < 0) {
+            write(2, SEEK_FAIL, strlen(SEEK_FAIL));
+            exit(-1);
+        }
 
         //iterate and find file
         if (pDirent->d_type == DT_DIR) {
@@ -230,6 +235,16 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
                 continue;
             }
         }
+    }
+
+    //close input and output files
+    if (close(inputDescriptor) < 0) {
+        write(2, CLOSE_FAILED, strlen(CLOSE_FAILED));
+        exit(-1);
+    }
+    if (close(outputDescriptor) < 0) {
+        write(2, CLOSE_FAILED, strlen(CLOSE_FAILED));
+        exit(-1);
     }
 }
 
@@ -459,6 +474,7 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
         //restore position
         chdir(getenv("HOME"));
         chdir(dirName);
+
         if (unlink(userProgName) < 0) {
             write(2, UNLINK_FAILED, strlen(UNLINK_FAILED));
             exit(-1); //todo exit -1 or 0?? everywhere
