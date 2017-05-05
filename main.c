@@ -1,3 +1,13 @@
+/******************************************
+*
+Student name: Haim Rubinstein
+*
+Student ID: 203405386
+*
+Course Exercise Group:01
+*
+Exercise name:Ex12
+******************************************/
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -28,39 +38,39 @@
 #define UNLINK_FAILED "failed to unlink a file"
 
 //the function deceleration
-void startChecking(char *usersDirPath, char *inputSource,
+void StartChecking(char *usersDirPath, char *inputSource,
                    char *outputSource, char *compareProgPath, int resultFile);
 
-void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
+void CheckExecutableAndRun(char *dir, char *studentDirName, int *depth,
                            int *reslutSearch, char *fileName);
 
-void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth,
-                 char *initialPath, char *studentName, int resultFile);
+void CompileFile(char *dir, char *fileName, int inputFile, char *outputFile,
+                 int depth, char *initialPath, char *studentName, int resultFile);
 
-void executeUserProg(char *dirName, int inputFileDescriptor,
+void ExecuteUserProg(char *dirName, int inputFileDescriptor,
                      char *compareProgPath, char *givenOutputFile,
                      int depth, char *studentName, int resultFile);
 
-void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth,
+void RunCompare(char *userOutput, char *outputFile, char *progDirPath, int depth,
                 char *studentName, int resultFile);
 
-int calcGrade(int grade, int depth);
+int CalcGrade(int grade, int depth);
 
-void getStringGrade(char *buff, int grade, int depth);
+void GetStringGrade(char *buff, int grade, int depth);
 
-void setGrade(int grade, int depth, int resultFile, char *studentName);
+void SetGrade(int grade, int depth, int resultFile, char *studentName);
 
-int is_C_file(char *pDirent);
+int IsCFile(char *pDirent);
 
 
-/**
+/********************************************
  * the main function.
  * opens the config file,then opens the users directory
  * runs every user program and grade him.
  * @param argc - number of args
  * @param argv- the args for the program
  * @return - exit value
- */
+ *******************************************/
 int main(int argc, char *argv[]) {
 
     //declare variables
@@ -125,7 +135,8 @@ int main(int argc, char *argv[]) {
     strcpy(outputSource, paths);
 
     //run check on every student
-    startChecking(usersDirPath, inputSource, outputSource, initialProgPath, resultFile);
+    startChecking(usersDirPath, inputSource, outputSource,
+                  initialProgPath, resultFile);
 
     //go back to initial directory
     chdir(initialProgPath);
@@ -141,7 +152,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-/**
+/********************************************
  * get the users directory path and
  * start running on each student
  * fins is c file and grade him.
@@ -149,7 +160,7 @@ int main(int argc, char *argv[]) {
  * @param inputSource - the input for the user program
  * @param outputSource - the output for the user program
  * @param resultDescriptor -the file where to write is result
- */
+ *******************************************/
 void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
                    char *compareProgPath, int resultFile) {
 
@@ -248,7 +259,7 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
     }
 }
 
-/**
+/********************************************
  * check in a given student directory if there is a c file
  * if there is then compile an run it.
  * @param dir - the curr directory
@@ -258,7 +269,7 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
  * @param outputFile  - the output for the user program
  * @param compareProgPath - the path to the compare program
  * @param resultFile - the file where to write is grade
- */
+ *******************************************/
 void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
                            int *reslutSearch, char *fileName) {
 
@@ -285,7 +296,8 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
     pDirent = readdir(studentDir);
     while ((pDirent != NULL)) {
         //it's father's directory
-        if ((strcmp(pDirent->d_name, ".") == 0) || (strcmp(pDirent->d_name, "..") == 0)) {
+        if ((strcmp(pDirent->d_name, ".") == 0) ||
+            (strcmp(pDirent->d_name, "..") == 0)) {
             pDirent = readdir(studentDir);
             continue;
         }
@@ -322,7 +334,7 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
     checkExecutableAndRun(dir, tempDir, depth, reslutSearch, fileName);
 }
 
-/**
+/********************************************
  * gets a path to a c file
  * opens a new son process and runs this
  * file on the new process. then compare the
@@ -335,9 +347,9 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
  * @param initialPath - the place where the compare program is
  * @param studentName - the student's name
  * @param resultFile - the file where to write is grade
- */
-void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int depth,
-                 char *initialPath, char *studentName, int resultFile) {
+ *******************************************/
+void compileFile(char *dir, char *fileName, int inputFile, char *outputFile,
+                 int depth, char *initialPath, char *studentName, int resultFile) {
 
     //declare variables
     int status;
@@ -375,15 +387,16 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
                 return;
                 //everything was fine
             } else if (WEXITSTATUS(status) == 0) {
-                executeUserProg(dir, inputFile, initialPath, outputFile, depth, studentName, resultFile);
+                executeUserProg(dir, inputFile, initialPath, outputFile,
+                                depth, studentName, resultFile);
             }
-        }else{
+        } else {
             //todo child didn't end normal  what to do?
         }
     }
 }
 
-/**
+/********************************************
  * runs a given path to an exe file
  * read the input from a file.
  * also write the output to a file.
@@ -395,9 +408,10 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
  * @param depth - the depth of the file's directory
  * @param studentName - the name
  * @param resultFile - the file where to write is grade
- */
+ *******************************************/
 void executeUserProg(char *dirName, int inputFileDescriptor,
-                     char *compareProgPath, char *givenOutputFile, int depth, char *studentName, int resultFile) {
+                     char *compareProgPath, char *givenOutputFile, int depth,
+                     char *studentName, int resultFile) {
 
     //declare variables
     __pid_t pid;
@@ -425,7 +439,8 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
     //we are son process
     if (pid == 0) {
         //run program
-        userOutputDescriptor = open(STUDENT_PROGRAM_OUTPUT_FILE, O_CREAT | O_RDWR, 0666); //todo .txt??
+        userOutputDescriptor = open(STUDENT_PROGRAM_OUTPUT_FILE,
+                                    O_CREAT | O_RDWR, 0666); //todo .txt??
         if (userOutputDescriptor < 0) {
             write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
             exit(-1);
@@ -468,7 +483,8 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
             exit(-1);
         } else {
             //run my compare program
-            runCompare(userOutputName, givenOutputFile, compareProgPath, depth, studentName, resultFile);
+            runCompare(userOutputName, givenOutputFile, compareProgPath,
+                       depth, studentName, resultFile);
         }
 
         //restore position
@@ -487,7 +503,7 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
     }
 }
 
-/**
+/********************************************
  * the function that runs the compare program on
  * the result.
  * @param userOutput - the wanted output.
@@ -496,9 +512,9 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
  * @param depth - the depth the file is in
  * @param studentName - the student's name
  * @param resultFile - the file where to write is grade
- * @return
- */
-void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth, char *studentName, int resultFile) {
+ *******************************************/
+void runCompare(char *userOutput, char *outputFile, char *progDirPath,
+                int depth, char *studentName, int resultFile) {
 
     //declare variables
     int status;
@@ -549,12 +565,12 @@ void runCompare(char *userOutput, char *outputFile, char *progDirPath, int depth
     }
 }
 
-/**
+/********************************************
  * calculate the numeric grade that the student needs to get.
  * @param grade - an indicator of the grade.
  * @param depth - the depth pendelty
  * @return - the final grade
- */
+ *******************************************/
 int calcGrade(int grade, int depth) {
 
     //declare variables
@@ -581,7 +597,7 @@ int calcGrade(int grade, int depth) {
     }
 }
 
-/**
+/********************************************
  * get the student's grade.
  * with a faw parameters.
  * calc is grade according to the parameters and write is
@@ -590,7 +606,7 @@ int calcGrade(int grade, int depth) {
  * @param depth - the depth of is c file
  * @param resultFile - the file to write to.
  * @param studentName - his name.
- */
+ *******************************************/
 void setGrade(int grade, int depth, int resultFile, char *studentName) {
 
     //declare variables
@@ -627,26 +643,27 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
     return;
 }
 
-/**
+/********************************************
  * check if a given path is a path to a c file
  * @param pDirent - the path
  * @return  -if it is a c file
- */
+ *******************************************/
 int is_C_file(char *pDirent) { //todo will work or need to use lstat?
     size_t suffix = strlen(pDirent) - 1;
-    if ((suffix > 2) && (pDirent[suffix] == 'c') && (pDirent[suffix - 1] == '.')) { //todo >2 or >=2
+    if ((suffix > 2) && (pDirent[suffix] == 'c') &&
+        (pDirent[suffix - 1] == '.')) { //todo >2 or >=2
         return 1;
     }
     return 0;
 }
 
-/**
+/********************************************
  * gets a string that gives a feedback on
  * a students grade.
  * @param buff - where to enter the string
  * @param grade - the grade
  * @param depth  - the depth of the c file.
- */
+ *******************************************/
 void getStringGrade(char *buff, int grade, int depth) {
 
     //convert according to the case
