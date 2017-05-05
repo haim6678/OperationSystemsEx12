@@ -274,13 +274,12 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
     strcat(dir, "/");
     strcat(dir, studentDirName);
     studentDir = opendir(dir);
-
     //open it
     if (studentDir == NULL) {
         write(2, DIR_OPEN_FAIL, strlen(DIR_OPEN_FAIL));
         exit(-1);
     }
-    chdir(dir);
+    chdir(dir); //todo does chdir count as sys call?
 
     //get next entry in directory check if it's . or .. or just a file
     pDirent = readdir(studentDir);
@@ -378,6 +377,8 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile, int
             } else if (WEXITSTATUS(status) == 0) {
                 executeUserProg(dir, inputFile, initialPath, outputFile, depth, studentName, resultFile);
             }
+        }else{
+            //todo child didn't end normal  what to do?
         }
     }
 }
@@ -403,13 +404,11 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
     int status;
     int success;
     int userOutputDescriptor;
-    char userProgName[SIZE];
     char userOutputName[SIZE];
     char compiledPath[SIZE];
+
     //create output file path
     memset(userOutputName, 0, SIZE);
-    memset(userProgName, 0, SIZE);
-    strcat(userProgName, STUDENT_COMPILED_FILE_NAME);
 
     //create user output path
     strcpy(userOutputName, dirName);
@@ -460,9 +459,10 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
     } else {
         //wait 5 seconds for son
         sleep(5);
-        //check if sin finished correctly
+        //check if son finished correctly
         if ((success = waitpid(pid, &status, WNOHANG)) == 0) {
             setGrade(TIMEOUT, depth, resultFile, studentName);
+            //wait failed
         } else if (success == -1) {
             write(2, WAIT_ERROR, strlen(WAIT_ERROR));
             exit(-1);
@@ -475,11 +475,11 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
         chdir(getenv("HOME"));
         chdir(dirName);
 
-        if (unlink(userProgName) < 0) {
+        if (unlink(STUDENT_COMPILED_FILE_NAME) < 0) {
             write(2, UNLINK_FAILED, strlen(UNLINK_FAILED));
             exit(-1); //todo exit -1 or 0?? everywhere
         }
-        if (unlink(userOutputName) < 0) {
+        if (unlink(STUDENT_PROGRAM_OUTPUT_FILE) < 0) {
             write(2, UNLINK_FAILED, strlen(UNLINK_FAILED));
             exit(-1); //todo exit -1 or 0?? everywhere
         }
@@ -604,7 +604,7 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
     temp = calcGrade(grade, depth);
     writen = snprintf(gradeInString, 128, "%d", temp);
     if (writen < 0) {
-        //
+        //TODO need to handle this with perror or write?
     }
 
     //gets the string describes his grade
