@@ -36,12 +36,14 @@ Exercise name:Ex12
 #define COMPARE_PROGRAM_NAME "comp.out"
 #define CLOSE_FAILED "failed to close file"
 #define UNLINK_FAILED "failed to unlink a file"
-
+#define CHANGE_DIR_FAIL "failed chainging dir"
+#define FAIL_GET_CURRENT_DIRECTORY "failed getting current dir"
+#define COMPILE_PROCESS_FAIL "compile processs crashed"
 //the function deceleration
 void StartChecking(char *usersDirPath, char *inputSource,
                    char *outputSource, char *compareProgPath, int resultFile);
 
-void CheckExecutableAndRun(char *dir, char *studentDirName, int *depth,
+void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
                            int *reslutSearch, char *fileName);
 
 void CompileFile(char *dir, char *fileName, int inputFile, char *outputFile,
@@ -92,7 +94,8 @@ int main(int argc, char *argv[]) {
 
     //get the current working directory
     if ((getcwd(initialProgPath, SIZE) == NULL)) {
-        //todo handle error
+        write(2, FAIL_GET_CURRENT_DIRECTORY, strlen(FAIL_GET_CURRENT_DIRECTORY));
+        exit(-1);
     }
 
     //open the config file to read
@@ -106,11 +109,11 @@ int main(int argc, char *argv[]) {
     off_t seek = lseek(config, 0, SEEK_SET);
     if (seek < 0) {
         write(2, SEEK_FAIL, strlen(SEEK_FAIL));
-        exit(-1); //todo todo this??
+        exit(-1);
     }
 
     //create result file
-    resultFile = open("result.csv", O_CREAT | O_APPEND | O_RDWR, 0666);
+    resultFile = open("result.csv", O_CREAT | O_WRONLY | O_TRUNC, 0666);
     if (resultFile < 0) {
         write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
         exit(-1);
@@ -139,7 +142,10 @@ int main(int argc, char *argv[]) {
                   initialProgPath, resultFile);
 
     //go back to initial directory
-    chdir(initialProgPath);
+    if (chdir(initialProgPath) < 0) {
+        write(2, CHANGE_DIR_FAIL, strlen(CHANGE_DIR_FAIL));
+        exit(-1);
+    }
 
     if (close(config) < 0) {
         write(2, CLOSE_FAILED, strlen(CLOSE_FAILED));
@@ -179,7 +185,7 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
     strcpy(usersPathBackup, usersDirPath);
     //open users directory
     users = opendir(usersDirPath);
-    if (users == NULL) { //todo is opendir and readdir are sys calls? how to handle them?
+    if (users == NULL) {
         write(2, DIR_OPEN_FAIL, strlen(DIR_OPEN_FAIL));
         exit(-1);
     }
@@ -210,7 +216,10 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
 
         //reset working directory ro the users directory
         strcpy(usersDirPath, usersPathBackup);
-        chdir(usersDirPath);
+        if (chdir(usersDirPath) < 0) {
+            write(2, CHANGE_DIR_FAIL, strlen(CHANGE_DIR_FAIL));
+            exit(-1);
+        }
         //reset the given input and output files
         if (lseek(inputDescriptor, 0, SEEK_SET) < 0) {
             write(2, SEEK_FAIL, strlen(SEEK_FAIL));
@@ -290,7 +299,10 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
         write(2, DIR_OPEN_FAIL, strlen(DIR_OPEN_FAIL));
         exit(-1);
     }
-    chdir(dir); //todo does chdir count as sys call?
+    if (chdir(dir) < 0) {
+        write(2, CHANGE_DIR_FAIL, strlen(CHANGE_DIR_FAIL));
+        exit(-1);
+    }
 
     //get next entry in directory check if it's . or .. or just a file
     pDirent = readdir(studentDir);
@@ -380,7 +392,7 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile,
         };
 
         //check compile errors
-        if (WIFEXITED (status)) {
+        if (WIFEXITED(status)) {
             //if there was a compile problem
             if (WEXITSTATUS(status) == 1) {
                 setGrade(COMPILATION_ERROR, depth, resultFile, studentName);
@@ -391,7 +403,8 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile,
                                 depth, studentName, resultFile);
             }
         } else {
-            //todo child didn't end normal  what to do?
+            perror(COMPILE_PROCESS_FAIL);
+            exit(-1);
         }
     }
 }
@@ -440,12 +453,15 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
     if (pid == 0) {
         //run program
         userOutputDescriptor = open(STUDENT_PROGRAM_OUTPUT_FILE,
-                                    O_CREAT | O_RDWR, 0666); //todo .txt??
+                                    O_CREAT | O_RDWR, 0666);
         if (userOutputDescriptor < 0) {
             write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
             exit(-1);
         }
-        chdir(dirName);
+        if (chdir(dirName) < 0) {
+            write(2, CHANGE_DIR_FAIL, strlen(CHANGE_DIR_FAIL));
+            exit(-1);
+        }
         //use dup for input
         success = dup2(inputFileDescriptor, 0);
         if (success == -1) {
@@ -466,7 +482,6 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
 
         execlp(compiledPath, STUDENT_COMPILED_FILE_NAME, NULL);
 
-        //TODO CHECK CORE DUMPED
 
         write(2, EXEC_FAIL, strlen(EXEC_FAIL));
         exit(-1);
@@ -488,16 +503,21 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
         }
 
         //restore position
-        chdir(getenv("HOME"));
-        chdir(dirName);
+        if (chdir(getenv("HOME")) < 0) {
+            write(2, CHANGE_DIR_FAIL, strlen(CHANGE_DIR_FAIL));
+            exit(-1);
+        }
+        if (chdir(dirName) < 0) {
+
+        }
 
         if (unlink(STUDENT_COMPILED_FILE_NAME) < 0) {
             write(2, UNLINK_FAILED, strlen(UNLINK_FAILED));
-            exit(-1); //todo exit -1 or 0?? everywhere
+            exit(-1);
         }
         if (unlink(STUDENT_PROGRAM_OUTPUT_FILE) < 0) {
             write(2, UNLINK_FAILED, strlen(UNLINK_FAILED));
-            exit(-1); //todo exit -1 or 0?? everywhere
+            exit(-1);
         }
         return;
     }
@@ -524,13 +544,19 @@ void runCompare(char *userOutput, char *outputFile, char *progDirPath,
     char comparePath[SIZE];
 
     //go to the compare program path
-    chdir(getenv("HOME"));
+    if (chdir(getenv("HOME")) < 0) {
+        write(2, CHANGE_DIR_FAIL, strlen(CHANGE_DIR_FAIL));
+        exit(-1);
+    }
     progDir = opendir(progDirPath);
     if (progDir == NULL) {
         write(2, DIR_OPEN_FAIL, strlen(DIR_OPEN_FAIL));
         exit(-1);
     }
-    chdir(progDirPath);
+    if (chdir(progDirPath) < 0) {
+        write(2, CHANGE_DIR_FAIL, strlen(CHANGE_DIR_FAIL));
+        exit(-1);
+    }
 
     //fork a son
     if ((pid = fork()) < 0) {
@@ -561,7 +587,8 @@ void runCompare(char *userOutput, char *outputFile, char *progDirPath,
         //set the students grade
         setGrade(compareResult, depth, resultFile, studentName);
     } else {
-        //todo handle son exception
+        perror("compare process failed");
+        exit(-1);
     }
 }
 
@@ -616,15 +643,18 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
     int temp;
     ssize_t writen;
 
+    memset(gradeInString, 0, 128);
     //convert grade to string
     temp = calcGrade(grade, depth);
     writen = snprintf(gradeInString, 128, "%d", temp);
     if (writen < 0) {
-        //TODO need to handle this with perror or write?
+        perror("failed converting grade to string");
     }
 
     //gets the string describes his grade
     getStringGrade(gradeDescription, grade, depth);
+
+
 
     //create one long string
     memset(finalDetails, 0, 512);
@@ -633,9 +663,10 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
     strcat(finalDetails, gradeInString);
     strcat(finalDetails, ",");
     strcat(finalDetails, gradeDescription);
+    strcat(finalDetails,"\n");
 
     //write this string
-    writen = write(resultFile, studentName, strlen(finalDetails));
+    writen = write(resultFile, finalDetails, strlen(finalDetails));
     if (writen < 0) {
         write(2, WRITE_ERROR, strlen(WRITE_ERROR));
         exit(-1);
@@ -648,10 +679,10 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
  * @param pDirent - the path
  * @return  -if it is a c file
  *******************************************/
-int is_C_file(char *pDirent) { //todo will work or need to use lstat?
+int is_C_file(char *pDirent) {
     size_t suffix = strlen(pDirent) - 1;
     if ((suffix > 2) && (pDirent[suffix] == 'c') &&
-        (pDirent[suffix - 1] == '.')) { //todo >2 or >=2
+        (pDirent[suffix - 1] == '.')) {
         return 1;
     }
     return 0;
@@ -669,8 +700,8 @@ void getStringGrade(char *buff, int grade, int depth) {
     //convert according to the case
     memset(buff, 0, sizeof(buff));
     switch (grade) {
-        case 3:
-            strcpy(buff, "GREAT_JOB"); //todo check this case
+        case 1:
+            strcpy(buff, "GREAT_JOB");
             if (depth > 0) {
                 strcat(buff, ",");
                 strcat(buff, "WRONG_DIRECTORY");
@@ -685,7 +716,7 @@ void getStringGrade(char *buff, int grade, int depth) {
                 return;
             }
             return;
-        case 1:
+        case 3:
             strcpy(buff, "WRONG_OUTPUT");
             if (depth > 0) {
                 strcat(buff, ",");
