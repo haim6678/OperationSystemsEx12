@@ -59,7 +59,7 @@ void RunCompare(char *userOutput, char *outputFile, char *progDirPath, int depth
 
 int CalcGrade(int grade, int depth);
 
-void GetStringGrade(char *buff, int grade, int depth);
+void getStringGrade(char *buff, int grade, int depth);
 
 void SetGrade(int grade, int depth, int resultFile, char *studentName);
 
@@ -70,9 +70,10 @@ int IsCFile(char *pDirent);
  * the main function.
  * opens the config file,then opens the users directory
  * runs every user program and grade him.
- * @param argc - number of args
- * @param argv- the args for the program
- * @return - exit value
+ * the input: argc - number of args
+ *            argv- the args for the program
+ * the output: - exit value
+ * The Function operation: runs the program
  *******************************************/
 int main(int argc, char *argv[]) {
 
@@ -163,12 +164,14 @@ int main(int argc, char *argv[]) {
  * get the users directory path and
  * start running on each student
  * fins is c file and grade him.
- * @param usersDirPath - the users directory
- * @param inputSource - the input for the user program
- * @param outputSource - the output for the user program
- * @param resultDescriptor -the file where to write is result
+ * the input: usersDirPath - the users directory
+ *            inputSource - the input for the user program
+ *            outputSource - the output for the user program
+ *            resultDescriptor -the file where to write is result
+ * The Function operation: runs on all the student search for c file and call
+ *                         the next func to compile it
  *******************************************/
-void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
+void StartChecking(char *usersDirPath, char *inputSource, char *outputSource,
                    char *compareProgPath, int resultFile) {
 
     //declare variables
@@ -256,15 +259,16 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
 }
 
 /********************************************
- * check in a given student directory if there is a c file
- * if there is then compile an run it.
- * @param dir - the curr directory
- * @param studentDirName -students directory
- * @param depth - the depth of the c file in the students directory
- * @param inputFile - the input for the user program
- * @param outputFile  - the output for the user program
- * @param compareProgPath - the path to the compare program
- * @param resultFile - the file where to write is grade
+ *
+ * the input: dir - the curr directory
+ *       studentDirName -students directory
+ *       depth - the depth of the c file in the students directory
+ *       inputFile - the input for the user program
+ *       outputFile  - the output for the user program
+ *       compareProgPath - the path to the compare program
+ *       resultFile - the file where to write is gradeth bfs and check c file
+ * The Function operation:  check in a given student directory if there is a c file
+ *                          if there is then compile an run it.
  *******************************************/
 void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
                            int *reslutSearch, char *fileName) {
@@ -334,18 +338,19 @@ void checkExecutableAndRun(char *dir, char *studentDirName, int *depth,
 }
 
 /********************************************
- * gets a path to a c file
- * opens a new son process and runs this
- * file on the new process. then compare the
- * result to a given file.
- * @param dir - the directory where the file is
- * @param fileName  - the file name
- * @param inputFile - the input for the user program
- * @param outputFile  - the output for the user program
- * @param depth - the depth the file is in
- * @param initialPath - the place where the compare program is
- * @param studentName - the student's name
- * @param resultFile - the file where to write is grade
+ *
+ * the input: dir - the directory where the file is
+ *       fileName  - the file name
+ *       inputFile - the input for the user program
+ *       outputFile  - the output for the user program
+ *       depth - the depth the file is in
+ *       initialPath - the place where the compare program is
+ *       studentName - the student's name
+ *       resultFile - the file where to write is grade
+ * the operation:gets a path to a c file
+ *          opens a new son process and runs this
+ *          file on the new process. then compare the
+ *          result to a given file.
  *******************************************/
 void compileFile(char *dir, char *fileName, int inputFile, char *outputFile,
                  int depth, char *initialPath, char *studentName, int resultFile) {
@@ -397,17 +402,18 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile,
 }
 
 /********************************************
- * runs a given path to an exe file
- * read the input from a file.
- * also write the output to a file.
- * then compare the output the the wanted result
- * @param dirName - the directory where the file is
- * @param inputFileDescriptor - the input descriptor
- * @param compareProgPath  - the path to compare program
- * @param givenOutputFile - the wanted output.
- * @param depth - the depth of the file's directory
- * @param studentName - the name
- * @param resultFile - the file where to write is grade
+ *
+ * the input:  dirName - the directory where the file is
+ *       inputFileDescriptor - the input descriptor
+ *       compareProgPath  - the path to compare program
+ *       givenOutputFile - the wanted output.
+ *       depth - the depth of the file's directory
+ *       studentName - the name
+ *      resultFile - the file where to write is grade
+ * the function operation:  runs a given path to an exe file
+ *      read the input from a file.
+ *      also write the output to a file.
+ *      then compare the output the the wanted result
  *******************************************/
 void executeUserProg(char *dirName, int inputFileDescriptor,
                      char *compareProgPath, char *givenOutputFile, int depth,
@@ -484,7 +490,7 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
             write(2, WAIT_ERROR, strlen(WAIT_ERROR));
             exit(-1);
         } else {
-            kill(pid,SIGSTOP);
+            kill(pid, SIGSTOP);
             //run my compare program
             runCompare(userOutputName, givenOutputFile, compareProgPath,
                        depth, studentName, resultFile);
@@ -499,6 +505,7 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
 
         }
 
+        //delete files
         if (unlink(STUDENT_COMPILED_FILE_NAME) < 0) {
             write(2, UNLINK_FAILED, strlen(UNLINK_FAILED));
             exit(-1);
@@ -512,14 +519,15 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
 }
 
 /********************************************
- * the function that runs the compare program on
- * the result.
- * @param userOutput - the wanted output.
- * @param outputFile - the wanted input.
- * @param progDirPath - the path to compare program
- * @param depth - the depth the file is in
- * @param studentName - the student's name
- * @param resultFile - the file where to write is grade
+ *
+ * the input:  userOutput - the wanted output.
+ *       outputFile - the wanted input.
+ *       progDirPath - the path to compare program
+ *       depth - the depth the file is in
+ *       studentName - the student's name
+ *       resultFile - the file where to write is grade
+ * the func operation:the function that runs the compare program on
+ *          the result.
  *******************************************/
 void runCompare(char *userOutput, char *outputFile, char *progDirPath,
                 int depth, char *studentName, int resultFile) {
@@ -581,10 +589,11 @@ void runCompare(char *userOutput, char *outputFile, char *progDirPath,
 }
 
 /********************************************
- * calculate the numeric grade that the student needs to get.
- * @param grade - an indicator of the grade.
- * @param depth - the depth pendelty
- * @return - the final grade
+ *
+ * the input: grade - an indicator of the grade.
+ *       depth - the depth pendelty
+ *the output: - the final grade
+ * the operation: calculate the numeric grade that the student needs to get.
  *******************************************/
 int calcGrade(int grade, int depth) {
 
@@ -613,14 +622,15 @@ int calcGrade(int grade, int depth) {
 }
 
 /********************************************
- * get the student's grade.
- * with a faw parameters.
- * calc is grade according to the parameters and write is
- * grade to the file.
- * @param grade - the indicator for the grade
- * @param depth - the depth of is c file
- * @param resultFile - the file to write to.
- * @param studentName - his name.
+ *
+ * the input: grade - the indicator for the grade
+ *       depth - the depth of is c file
+ *       resultFile - the file to write to.
+ *       studentName - his name.
+ * the operation:get the student's grade.
+ *       with a faw parameters.
+ *       calc is grade according to the parameters and write is
+ *       grade to the file.
  *******************************************/
 void setGrade(int grade, int depth, int resultFile, char *studentName) {
 
@@ -642,8 +652,6 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
     //gets the string describes his grade
     getStringGrade(gradeDescription, grade, depth);
 
-
-
     //create one long string
     memset(finalDetails, 0, 512);
     strcpy(finalDetails, studentName);
@@ -663,9 +671,10 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
 }
 
 /********************************************
- * check if a given path is a path to a c file
- * @param pDirent - the path
- * @return  -if it is a c file
+ *
+ * the input: pDirent - the path
+ * the output:  -if it is a c file
+ * the operation: check if a given path is a path to a c file
  *******************************************/
 int is_C_file(char *pDirent) {
     size_t suffix = strlen(pDirent) - 1;
@@ -677,11 +686,12 @@ int is_C_file(char *pDirent) {
 }
 
 /********************************************
- * gets a string that gives a feedback on
- * a students grade.
- * @param buff - where to enter the string
- * @param grade - the grade
- * @param depth  - the depth of the c file.
+ *
+ * the input: buff - where to enter the string
+ *       grade - the grade
+ *       depth  - the depth of the c file.
+ * the operation: gets a string that gives a feedback on
+ *          a students grade.
  *******************************************/
 void getStringGrade(char *buff, int grade, int depth) {
 
