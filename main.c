@@ -39,6 +39,7 @@ Exercise name:Ex12
 #define CHANGE_DIR_FAIL "failed chainging dir"
 #define FAIL_GET_CURRENT_DIRECTORY "failed getting current dir"
 #define COMPILE_PROCESS_FAIL "compile processs crashed"
+
 //the function deceleration
 void StartChecking(char *usersDirPath, char *inputSource,
                    char *outputSource, char *compareProgPath, int resultFile);
@@ -190,20 +191,6 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
         exit(-1);
     }
 
-    //open input source
-    inputDescriptor = open(inputSource, O_RDONLY);
-    if (inputDescriptor < 0) {
-        write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
-        exit(-1);
-    }
-
-    //open output source
-    outputDescriptor = open(outputSource, 0666);
-    if (outputDescriptor < 0) {
-        write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
-        exit(-1);
-    }
-
     //iterate over users
     //for every user run test
     while ((pDirent = readdir(users)) != NULL) {
@@ -220,15 +207,8 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
             write(2, CHANGE_DIR_FAIL, strlen(CHANGE_DIR_FAIL));
             exit(-1);
         }
-        //reset the given input and output files
-        if (lseek(inputDescriptor, 0, SEEK_SET) < 0) {
-            write(2, SEEK_FAIL, strlen(SEEK_FAIL));
-            exit(-1);
-        }
-        if (lseek(outputDescriptor, 0, SEEK_SET) < 0) {
-            write(2, SEEK_FAIL, strlen(SEEK_FAIL));
-            exit(-1);
-        }
+
+
 
         //iterate and find file
         if (pDirent->d_type == DT_DIR) {
@@ -241,10 +221,17 @@ void startChecking(char *usersDirPath, char *inputSource, char *outputSource,
                                   &temp, fileName);
             //check result
             if (temp == 1) {
+                inputDescriptor = open(inputSource, O_RDONLY);
+                if (inputDescriptor < 0) {
+                    write(2, OPEN_FILE_FAIL, strlen(OPEN_FILE_FAIL));
+                    exit(-1);
+                }
+
                 //compile and run
                 compileFile(usersDirPath, fileName, inputDescriptor, outputSource,
                             depth, compareProgPath, stuentNameBackup, resultFile);
-                continue;
+
+                close(inputDescriptor);
             } else if (temp == NO_C_FILE) {
                 //no c file
                 setGrade(NO_C_FILE, 0, resultFile, stuentNameBackup);
@@ -395,7 +382,7 @@ void compileFile(char *dir, char *fileName, int inputFile, char *outputFile,
         if (WIFEXITED(status)) {
             //if there was a compile problem
             if (WEXITSTATUS(status) == 1) {
-                setGrade(COMPILATION_ERROR, depth, resultFile, studentName);
+                setGrade(COMPILATION_ERROR, 0, resultFile, studentName);
                 return;
                 //everything was fine
             } else if (WEXITSTATUS(status) == 0) {
@@ -491,12 +478,13 @@ void executeUserProg(char *dirName, int inputFileDescriptor,
         sleep(5);
         //check if son finished correctly
         if ((success = waitpid(pid, &status, WNOHANG)) == 0) {
-            setGrade(TIMEOUT, depth, resultFile, studentName);
+            setGrade(TIMEOUT, 0, resultFile, studentName);
             //wait failed
         } else if (success == -1) {
             write(2, WAIT_ERROR, strlen(WAIT_ERROR));
             exit(-1);
         } else {
+            kill(pid,SIGSTOP);
             //run my compare program
             runCompare(userOutputName, givenOutputFile, compareProgPath,
                        depth, studentName, resultFile);
@@ -663,7 +651,7 @@ void setGrade(int grade, int depth, int resultFile, char *studentName) {
     strcat(finalDetails, gradeInString);
     strcat(finalDetails, ",");
     strcat(finalDetails, gradeDescription);
-    strcat(finalDetails,"\n");
+    strcat(finalDetails, "\n");
 
     //write this string
     writen = write(resultFile, finalDetails, strlen(finalDetails));
@@ -701,28 +689,32 @@ void getStringGrade(char *buff, int grade, int depth) {
     memset(buff, 0, sizeof(buff));
     switch (grade) {
         case 1:
-            strcpy(buff, "GREAT_JOB");
             if (depth > 0) {
+                strcpy(buff, "WRONG_DIRECTORY");
                 strcat(buff, ",");
-                strcat(buff, "WRONG_DIRECTORY");
+                strcat(buff, "GREAT_JOB");
                 return;
             }
+            strcpy(buff, "GREAT_JOB");
             return;
         case 2:
-            strcpy(buff, "SIMILAR_OUTPUT");
             if (depth > 0) {
+                strcpy(buff, "WRONG_DIRECTORY");
                 strcat(buff, ",");
-                strcat(buff, "WRONG_DIRECTORY");
+                strcat(buff, "SIMILAR_OUTPUT");
                 return;
             }
+            strcpy(buff, "SIMILAR_OUTPUT");
+
             return;
         case 3:
-            strcpy(buff, "WRONG_OUTPUT");
             if (depth > 0) {
+                strcpy(buff, "WRONG_DIRECTORY");
                 strcat(buff, ",");
-                strcat(buff, "WRONG_DIRECTORY");
+                strcat(buff, "WRONG_OUTPUT");
                 return;
             }
+            strcpy(buff, "WRONG_OUTPUT");
             return;
         case -2:
             strcpy(buff, "COMPILATION_ERROR");
